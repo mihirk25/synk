@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Synk — Manager",
-  description: "Daily labour, roster, EOD sales and cash count for your shop",
+  description: "Daily labour, roster, and closing form for your shop",
 };
 
 export const viewport = {

@@ -1,6 +1,5 @@
 import type { Section } from "@/lib/types";
 import {
-  Banknote,
   CalendarDays,
   ClipboardList,
   LayoutDashboard,
@@ -8,21 +7,25 @@ import {
 } from "lucide-react";
 import { ScrollRow } from "./ScrollRow";
 
-const tabs: { id: Section; label: string; icon: typeof LayoutDashboard }[] = [
+const allTabs: { id: Section; label: string; icon: typeof LayoutDashboard; staff?: boolean }[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
   { id: "labor", label: "Labour Cost", icon: Users },
   { id: "roster", label: "Roster", icon: CalendarDays },
-  { id: "eod", label: "EOD Sales", icon: ClipboardList },
-  { id: "cash", label: "Cash Count", icon: Banknote },
+  { id: "eod", label: "Closing Form", icon: ClipboardList, staff: true },
 ];
 
 export function SectionTabs({
   active,
   onChange,
+  userRole = "MANAGER",
 }: {
   active: Section;
   onChange: (s: Section) => void;
+  userRole?: "OWNER" | "MANAGER" | "VIEWER";
 }) {
+  const tabs =
+    userRole === "VIEWER" ? allTabs.filter((t) => t.staff) : allTabs;
+
   return (
     <ScrollRow>
       <nav className="flex w-max min-w-full gap-2 md:w-auto">

@@ -5,6 +5,8 @@ import { rosterSlotSchema } from "@/lib/validations";
 import { ensureRosterWeekInDb } from "@/lib/server/app-state";
 import { jsonError, parseJson, zodError } from "@/lib/server/api";
 import { writeAuditLog } from "@/lib/server/audit";
+import { parseAvailability } from "@/lib/availability";
+import { isEmployeeAvailableForShift } from "@/lib/employeePay";
 
 export async function PATCH(
   request: Request,
@@ -26,6 +28,21 @@ export async function PATCH(
         where: { id: employeeId, shopId: user.shopId, active: true },
       });
       if (!employee) return jsonError("Employee not found", 404);
+
+      const mapped = {
+        id: employee.id,
+        name: employee.name,
+        role: employee.role,
+        hourlyRate: employee.hourlyRate,
+        saturdayRate: employee.saturdayRate ?? undefined,
+        sundayRate: employee.sundayRate ?? undefined,
+        publicHolidayRate: employee.publicHolidayRate ?? undefined,
+        availability: parseAvailability(employee.availableDays),
+      };
+
+      if (!isEmployeeAvailableForShift(mapped, day, start, end)) {
+        return jsonError("Employee is not available for this shift time", 400);
+      }
     }
 
     await ensureRosterWeekInDb(user.shopId, weekStart);

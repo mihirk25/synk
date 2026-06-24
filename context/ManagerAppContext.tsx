@@ -19,15 +19,20 @@ import type {
   RosterWeek,
   Section,
 } from "@/lib/types";
+import type { AvailabilityKey } from "@/lib/availability";
 import { createSeedState } from "@/lib/seedData";
 import { ensureRosterWeek, getRosterForWeek } from "@/lib/roster";
-import { getMondayOfWeek, todayKey } from "@/lib/dates";
+import { getMondayOfWeek, parseDateKey, todayKey, toDateKey } from "@/lib/dates";
 import { apiFetch, ApiError } from "@/lib/api/client";
+
+type UserRole = "OWNER" | "MANAGER" | "VIEWER";
 
 type ManagerContextValue = {
   state: AppState;
   shopName: string;
   userEmail: string;
+  userName: string;
+  userRole: UserRole;
   section: Section;
   setSection: (s: Section) => void;
   selectedDate: string;
@@ -41,6 +46,16 @@ type ManagerContextValue = {
   removeShiftLog: (id: string) => Promise<void>;
   saveEOD: (report: Omit<EODReport, "id"> & { id?: string }) => Promise<void>;
   saveCashCount: (count: Omit<CashCount, "id"> & { id?: string }) => Promise<void>;
+  addEmployee: (data: {
+    name: string;
+    hourlyRate: number;
+    saturdayRate: number;
+    sundayRate: number;
+    publicHolidayRate: number;
+    availability: AvailabilityKey[];
+  }) => Promise<void>;
+  addRosterSlotRow: () => Promise<void>;
+  copyRosterFromPreviousWeek: () => Promise<{ copied: boolean; message: string }>;
   saveRosterSlot: (
     day: DayKey,
     slotIndex: number,
@@ -67,11 +82,22 @@ export function ManagerAppProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AppState>(createSeedState);
   const [shopName, setShopName] = useState("");
   const [userEmail, setUserEmail] = useState("");
+  const [userName, setUserName] = useState("");
+  const [userRole, setUserRole] = useState<UserRole>("MANAGER");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [section, setSection] = useState<Section>("dashboard");
-  const [selectedDate, setSelectedDate] = useState(todayKey());
-  const [weekStart, setWeekStart] = useState(getMondayOfWeek());
+  const [selectedDate, setSelectedDateState] = useState(todayKey());
+  const [weekStart, setWeekStartState] = useState(getMondayOfWeek());
+
+  const setSelectedDate = useCallback((date: string) => {
+    setSelectedDateState(date);
+    setWeekStartState(getMondayOfWeek(parseDateKey(date)));
+  }, []);
+
+  const setWeekStart = useCallback((start: string) => {
+    setWeekStartState(start);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -81,15 +107,18 @@ export function ManagerAppProvider({ children }: { children: ReactNode }) {
       setError(null);
       try {
         const [me, app] = await Promise.all([
-          apiFetch<{ user: { email: string } }>("/api/auth/me"),
+          apiFetch<{ user: { email: string; name: string | null; role: UserRole } }>("/api/auth/me"),
           apiFetch<{ state: AppState; shopName: string }>("/api/app-state"),
         ]);
         if (cancelled) return;
         setState(app.state);
         setShopName(app.shopName);
         setUserEmail(me.user.email);
+        setUserName(me.user.name ?? "");
+        setUserRole(me.user.role);
+        setSection(me.user.role === "VIEWER" ? "eod" : "dashboard");
         setSelectedDate(todayKey());
-        setWeekStart(getMondayOfWeek());
+        setWeekStartState(getMondayOfWeek());
       } catch (err) {
         if (cancelled) return;
         if (err instanceof ApiError && err.status === 401) {
@@ -139,24 +168,47 @@ export function ManagerAppProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
-  const saveEOD = useCallback(async (report: Omit<EODReport, "id"> & { id?: string }) => {
-    const { report: saved } = await apiFetch<{ report: EODReport }>("/api/eod-reports", {
-      method: "POST",
-      body: JSON.stringify({
-        date: report.date,
-        grossSales: report.grossSales,
-        cardSales: report.cardSales,
-        cashSales: report.cashSales,
-        refunds: report.refunds,
-        transactionCount: report.transactionCount,
-        notes: report.notes,
-      }),
-    });
-    setState((prev) => {
-      const filtered = prev.eodReports.filter((r) => r.date !== saved.date);
-      return { ...prev, eodReports: [...filtered, saved] };
-    });
-  }, []);
+  const handleAuthError = useCallback(
+    async (err: unknown) => {
+      if (err instanceof ApiError && err.status === 401) {
+        await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
+        router.replace("/login");
+        return true;
+      }
+      return false;
+    },
+    [router],
+  );
+
+  const saveEOD = useCallback(
+    async (report: Omit<EODReport, "id"> & { id?: string }) => {
+      try {
+        const { report: saved } = await apiFetch<{ report: EODReport }>("/api/eod-reports", {
+          method: "POST",
+          body: JSON.stringify({
+            date: report.date,
+            tillCash: report.tillCash,
+            reportCash: report.cashSales,
+            eftpos: report.cardSales,
+            expensesAmount: report.expensesAmount,
+            expenseNotes: report.expenseNotes,
+            urgentStock: report.urgentStock,
+            staffSignature: report.staffSignature ?? "",
+            floatTarget: report.floatTarget,
+            denomCounts: report.denomCounts,
+          }),
+        });
+        setState((prev) => {
+          const filtered = prev.eodReports.filter((r) => r.date !== saved.date);
+          return { ...prev, eodReports: [...filtered, saved] };
+        });
+      } catch (err) {
+        if (await handleAuthError(err)) return;
+        throw err;
+      }
+    },
+    [handleAuthError],
+  );
 
   const saveCashCount = useCallback(async (count: Omit<CashCount, "id"> & { id?: string }) => {
     const { count: saved } = await apiFetch<{ count: CashCount }>("/api/cash-counts", {
@@ -173,6 +225,57 @@ export function ManagerAppProvider({ children }: { children: ReactNode }) {
       return { ...prev, cashCounts: [...filtered, saved] };
     });
   }, []);
+
+  const addEmployee = useCallback(
+    async (data: {
+      name: string;
+      hourlyRate: number;
+      saturdayRate: number;
+      sundayRate: number;
+      publicHolidayRate: number;
+      availability: AvailabilityKey[];
+    }) => {
+      const { employee } = await apiFetch<{ employee: Employee }>("/api/employees", {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+      setState((prev) => ({
+        ...prev,
+        employees: [...prev.employees, employee].sort((a, b) => a.name.localeCompare(b.name)),
+      }));
+    },
+    [],
+  );
+
+  const addRosterSlotRow = useCallback(async () => {
+    const { roster } = await apiFetch<{ roster: RosterWeek }>(
+      `/api/roster/${weekStart}/add-slot`,
+      { method: "POST" },
+    );
+    applyRoster(roster);
+  }, [weekStart, applyRoster]);
+
+  const copyRosterFromPreviousWeek = useCallback(async () => {
+    const prevMonday = parseDateKey(weekStart);
+    prevMonday.setDate(prevMonday.getDate() - 7);
+    const sourceWeekStart = toDateKey(prevMonday);
+    const localSource = getRosterForWeek(state, sourceWeekStart);
+
+    const { roster, copied, message } = await apiFetch<{
+      roster: RosterWeek;
+      copied: boolean;
+      message: string;
+    }>(`/api/roster/${weekStart}/copy-from-previous`, {
+      method: "POST",
+      body: JSON.stringify(
+        localSource
+          ? { localSource: { slotsPerDay: localSource.slotsPerDay, slots: localSource.slots } }
+          : {},
+      ),
+    });
+    applyRoster(roster);
+    return { copied, message };
+  }, [weekStart, state, applyRoster]);
 
   const saveRosterSlot = useCallback(
     async (
@@ -224,6 +327,8 @@ export function ManagerAppProvider({ children }: { children: ReactNode }) {
       state,
       shopName,
       userEmail,
+      userName,
+      userRole,
       section,
       setSection,
       selectedDate,
@@ -237,6 +342,9 @@ export function ManagerAppProvider({ children }: { children: ReactNode }) {
       removeShiftLog,
       saveEOD,
       saveCashCount,
+      addEmployee,
+      addRosterSlotRow,
+      copyRosterFromPreviousWeek,
       saveRosterSlot,
       publishRoster,
       unpublishRoster,
@@ -247,6 +355,8 @@ export function ManagerAppProvider({ children }: { children: ReactNode }) {
       state,
       shopName,
       userEmail,
+      userName,
+      userRole,
       section,
       selectedDate,
       weekStart,
@@ -257,6 +367,9 @@ export function ManagerAppProvider({ children }: { children: ReactNode }) {
       removeShiftLog,
       saveEOD,
       saveCashCount,
+      addEmployee,
+      addRosterSlotRow,
+      copyRosterFromPreviousWeek,
       saveRosterSlot,
       publishRoster,
       unpublishRoster,

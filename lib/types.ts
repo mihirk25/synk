@@ -1,10 +1,16 @@
 export type DayKey = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
 
+import type { AvailabilityKey } from "./availability";
+
 export type Employee = {
   id: string;
   name: string;
   role: string;
   hourlyRate: number;
+  saturdayRate?: number;
+  sundayRate?: number;
+  publicHolidayRate?: number;
+  availability: AvailabilityKey[];
 };
 
 export type ShiftLog = {
@@ -15,6 +21,8 @@ export type ShiftLog = {
   notes?: string;
 };
 
+import type { DenomCounts } from "./eodClosing";
+
 export type EODReport = {
   id: string;
   date: string;
@@ -24,6 +32,13 @@ export type EODReport = {
   refunds: number;
   transactionCount: number;
   notes?: string;
+  tillCash: number;
+  expensesAmount: number;
+  expenseNotes?: string;
+  urgentStock?: string;
+  staffSignature?: string;
+  floatTarget: number;
+  denomCounts: DenomCounts;
 };
 
 export type CashCount = {
@@ -45,6 +60,7 @@ export type RosterWeek = {
   weekStart: string;
   published: boolean;
   publishedAt?: string;
+  slotsPerDay: number;
   slots: Record<DayKey, RosterSlot[]>;
 };
 
@@ -56,9 +72,4 @@ export type AppState = {
   rosterWeeks: RosterWeek[];
 };
 
-export type Section =
-  | "dashboard"
-  | "labor"
-  | "roster"
-  | "eod"
-  | "cash";
+export type Section = "dashboard" | "labor" | "roster" | "eod";

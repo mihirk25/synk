@@ -17,8 +17,18 @@ export function parseDateKey(key: string): Date {
   return new Date(y, m - 1, d);
 }
 
-export function formatDateKey(key: string, style: "short" | "long" = "short"): string {
+export function formatDateKey(
+  key: string,
+  style: "short" | "long" | "calendar" = "short",
+): string {
   const d = parseDateKey(key);
+  if (style === "calendar") {
+    return d.toLocaleDateString("en-AU", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+  }
   return d.toLocaleDateString("en-AU", {
     weekday: style === "long" ? "long" : "short",
     day: "numeric",

@@ -63,17 +63,21 @@ model Session {
 }
 
 model Employee {
-  id           String        @id @default(cuid())
-  shopId       String
-  name         String
-  role         String
-  hourlyRate   Float
-  active       Boolean       @default(true)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  shop         Shop          @relation(fields: [shopId], references: [id], onDelete: Cascade)
-  shiftLogs    ShiftLog[]
-  rosterSlots  RosterSlot[]
+  id                String        @id @default(cuid())
+  shopId            String
+  name              String
+  role              String        @default("Staff")
+  hourlyRate        Float
+  saturdayRate      Float?
+  sundayRate        Float?
+  publicHolidayRate Float?
+  availableDays     String        @default("mon,tue,wed,thu,fri,sat,sun")
+  active            Boolean       @default(true)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  shop              Shop          @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  shiftLogs         ShiftLog[]
+  rosterSlots       RosterSlot[]
 }
 
 model ShiftLog {
@@ -98,9 +102,16 @@ model EodReport {
   grossSales       Float
   cardSales        Float
   cashSales        Float
-  refunds          Float
-  transactionCount Int
+  refunds          Float    @default(0)
+  transactionCount Int      @default(0)
   notes            String?
+  tillCash         Float    @default(0)
+  expensesAmount   Float    @default(0)
+  expenseNotes     String?
+  urgentStock      String?
+  staffSignature   String?
+  floatTarget      Float    @default(1100)
+  denomCounts      String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
   shop             Shop     @relation(fields: [shopId], references: [id], onDelete: Cascade)
@@ -126,6 +137,7 @@ model RosterWeek {
   id          String        @id @default(cuid())
   shopId      String
   weekStart   String
+  slotsPerDay Int           @default(1)
   published   Boolean       @default(false)
   publishedAt DateTime?
   createdAt   DateTime      @default(now())

@@ -52,3 +52,7 @@ export async function requireSessionUser(): Promise<AuthUser> {
 export function canManage(user: AuthUser): boolean {
   return user.role === "OWNER" || user.role === "MANAGER";
 }
+
+export function canSubmitEod(user: AuthUser): boolean {
+  return user.role === "OWNER" || user.role === "MANAGER" || user.role === "VIEWER";
+}

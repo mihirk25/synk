@@ -5,7 +5,6 @@ import { DashboardSection } from "@/components/DashboardSection";
 import { LaborSection } from "@/components/LaborSection";
 import { RosterSection } from "@/components/RosterSection";
 import { EODSection } from "@/components/EODSection";
-import { CashCountSection } from "@/components/CashCountSection";
 import { useManagerApp } from "@/context/ManagerAppContext";
 import { PRODUCT_NAME } from "@/lib/constants";
 import { formatDateKey, todayKey } from "@/lib/dates";
@@ -22,13 +21,11 @@ function ActiveSection() {
       return <RosterSection />;
     case "eod":
       return <EODSection />;
-    case "cash":
-      return <CashCountSection />;
   }
 }
 
 export default function Home() {
-  const { section, setSection, shopName, userEmail, logout } = useManagerApp();
+  const { section, setSection, shopName, userEmail, userRole, logout } = useManagerApp();
 
   return (
     <div className="min-h-screen bg-[#fff8f3]">
@@ -62,7 +59,7 @@ export default function Home() {
 
       <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
         <div className="mb-6">
-          <SectionTabs active={section} onChange={setSection} />
+          <SectionTabs active={section} onChange={setSection} userRole={userRole} />
         </div>
         <ActiveSection />
       </main>

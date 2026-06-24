@@ -20,10 +20,13 @@ export async function apiFetch<T>(url: string, options?: RequestInit): Promise<T
   const data = await res.json().catch(() => ({}));
 
   if (!res.ok) {
-    throw new ApiError(
-      typeof data.error === "string" ? data.error : "Request failed",
-      res.status,
-    );
+    const message =
+      typeof data.error === "string"
+        ? data.error
+        : typeof data.message === "string"
+          ? data.message
+          : "Request failed";
+    throw new ApiError(message, res.status);
   }
 
   return data as T;

@@ -81,7 +81,9 @@ export default function LoginPage() {
         </form>
 
         <p className="mt-6 text-center text-xs text-[#8b5a6b]">
-          Demo: manager@synk.app / synk1234
+          Manager: manager@synk.app · Staff: staff@synk.app
+          <br />
+          Password: synk1234
         </p>
       </div>
     </div>

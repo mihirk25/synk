@@ -14,4 +14,5 @@ export const DAYS: { key: DayKey; label: string; short: string }[] = [
 ];
 
 export const DEFAULT_SHIFT = { on: false, start: "10:00", end: "18:00" };
-export const ROSTER_SLOTS_PER_DAY = 5;
+export const ROSTER_SLOTS_PER_DAY = 1;
+export const MAX_ROSTER_SLOTS_PER_DAY = 12;

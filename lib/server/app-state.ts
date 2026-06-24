@@ -1,9 +1,33 @@
 import type { DayKey, RosterWeek, AppState } from "@/lib/types";
 import { DAYS, ROSTER_SLOTS_PER_DAY } from "@/lib/constants";
+import { parseDenomCounts } from "@/lib/eodClosing";
 import { createEmptyDaySlots } from "@/lib/roster";
+import { parseAvailability } from "@/lib/availability";
 import { prisma } from "@/lib/db";
 
 const DAY_KEYS = DAYS.map((d) => d.key);
+
+function mapEmployee(e: {
+  id: string;
+  name: string;
+  role: string;
+  hourlyRate: number;
+  saturdayRate: number | null;
+  sundayRate: number | null;
+  publicHolidayRate: number | null;
+  availableDays: string;
+}) {
+  return {
+    id: e.id,
+    name: e.name,
+    role: e.role,
+    hourlyRate: e.hourlyRate,
+    saturdayRate: e.saturdayRate ?? undefined,
+    sundayRate: e.sundayRate ?? undefined,
+    publicHolidayRate: e.publicHolidayRate ?? undefined,
+    availability: parseAvailability(e.availableDays),
+  };
+}
 
 export async function fetchAppState(shopId: string): Promise<AppState> {
   const [employees, shiftLogs, eodReports, cashCounts, rosterWeeks] = await Promise.all([
@@ -22,12 +46,7 @@ export async function fetchAppState(shopId: string): Promise<AppState> {
   ]);
 
   return {
-    employees: employees.map((e) => ({
-      id: e.id,
-      name: e.name,
-      role: e.role,
-      hourlyRate: e.hourlyRate,
-    })),
+    employees: employees.map(mapEmployee),
     shiftLogs: shiftLogs.map((l) => ({
       id: l.id,
       date: l.date,
@@ -44,6 +63,13 @@ export async function fetchAppState(shopId: string): Promise<AppState> {
       refunds: r.refunds,
       transactionCount: r.transactionCount,
       notes: r.notes ?? undefined,
+      tillCash: r.tillCash,
+      expensesAmount: r.expensesAmount,
+      expenseNotes: r.expenseNotes ?? undefined,
+      urgentStock: r.urgentStock ?? undefined,
+      staffSignature: r.staffSignature ?? undefined,
+      floatTarget: r.floatTarget,
+      denomCounts: parseDenomCounts(r.denomCounts),
     })),
     cashCounts: cashCounts.map((c) => ({
       id: c.id,
@@ -60,6 +86,7 @@ function rosterWeekFromDb(week: {
   weekStart: string;
   published: boolean;
   publishedAt: Date | null;
+  slotsPerDay: number;
   slots: Array<{
     day: DayKey;
     slotIndex: number;
@@ -68,16 +95,20 @@ function rosterWeekFromDb(week: {
     end: string;
   }>;
 }): RosterWeek {
+  const slotsPerDay = week.slotsPerDay || ROSTER_SLOTS_PER_DAY;
+  const maxIndex = week.slots.reduce((m, s) => Math.max(m, s.slotIndex), slotsPerDay - 1);
+  const count = Math.max(slotsPerDay, maxIndex + 1);
+
   const slots = DAY_KEYS.reduce(
     (acc, day) => {
-      acc[day] = createEmptyDaySlots();
+      acc[day] = createEmptyDaySlots(count);
       return acc;
     },
     {} as RosterWeek["slots"],
   );
 
   for (const slot of week.slots) {
-    if (slot.slotIndex < 0 || slot.slotIndex >= ROSTER_SLOTS_PER_DAY) continue;
+    if (slot.slotIndex < 0 || slot.slotIndex >= count) continue;
     slots[slot.day][slot.slotIndex] = {
       slotIndex: slot.slotIndex,
       employeeId: slot.employeeId,
@@ -90,6 +121,7 @@ function rosterWeekFromDb(week: {
     weekStart: week.weekStart,
     published: week.published,
     publishedAt: week.publishedAt?.toISOString(),
+    slotsPerDay: count,
     slots,
   };
 }
@@ -105,6 +137,7 @@ export async function ensureRosterWeekInDb(shopId: string, weekStart: string) {
       data: {
         shopId,
         weekStart,
+        slotsPerDay: ROSTER_SLOTS_PER_DAY,
         slots: {
           create: DAY_KEYS.flatMap((day) =>
             Array.from({ length: ROSTER_SLOTS_PER_DAY }, (_, slotIndex) => ({
@@ -121,3 +154,5 @@ export async function ensureRosterWeekInDb(shopId: string, weekStart: string) {
 
   return rosterWeekFromDb(week);
 }
+
+export { mapEmployee };

@@ -14,12 +14,15 @@ export const shiftLogSchema = z.object({
 
 export const eodReportSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  grossSales: z.number().min(0),
-  cardSales: z.number().min(0),
-  cashSales: z.number().min(0),
-  refunds: z.number().min(0),
-  transactionCount: z.number().int().min(0),
-  notes: z.string().max(1000).optional(),
+  tillCash: z.number().min(0),
+  reportCash: z.number().min(0),
+  eftpos: z.number().min(0),
+  expensesAmount: z.number().min(0),
+  expenseNotes: z.string().max(2000).optional(),
+  urgentStock: z.string().max(2000).optional(),
+  staffSignature: z.string().min(1).max(100),
+  floatTarget: z.number().min(0),
+  denomCounts: z.record(z.string(), z.number().int().min(0)),
 });
 
 export const cashCountSchema = z.object({
@@ -31,8 +34,39 @@ export const cashCountSchema = z.object({
 
 export const rosterSlotSchema = z.object({
   day: z.enum(["mon", "tue", "wed", "thu", "fri", "sat", "sun"]),
-  slotIndex: z.number().int().min(0).max(4),
+  slotIndex: z.number().int().min(0).max(11),
   employeeId: z.string().min(1).nullable(),
   start: z.string().regex(/^\d{2}:\d{2}$/),
   end: z.string().regex(/^\d{2}:\d{2}$/),
+});
+
+const dayKeyEnum = z.enum(["mon", "tue", "wed", "thu", "fri", "sat", "sun"]);
+const timeBandEnum = z.enum(["morning", "afternoon", "evening"]);
+const availabilityKeyEnum = z.string().regex(
+  /^(mon|tue|wed|thu|fri|sat|sun):(morning|afternoon|evening)$/,
+);
+
+export const employeeSchema = z.object({
+  name: z.string().min(1).max(100),
+  hourlyRate: z.number().positive(),
+  saturdayRate: z.number().positive(),
+  sundayRate: z.number().positive(),
+  publicHolidayRate: z.number().positive(),
+  availability: z.array(availabilityKeyEnum).min(1),
+});
+
+const rosterSlotInputSchema = z.object({
+  slotIndex: z.number().int().min(0).max(11),
+  employeeId: z.string().min(1).nullable(),
+  start: z.string().regex(/^\d{2}:\d{2}$/),
+  end: z.string().regex(/^\d{2}:\d{2}$/),
+});
+
+export const copyRosterFromPreviousSchema = z.object({
+  localSource: z
+    .object({
+      slotsPerDay: z.number().int().min(1).max(12),
+      slots: z.record(dayKeyEnum, z.array(rosterSlotInputSchema)),
+    })
+    .optional(),
 });

@@ -4,11 +4,40 @@ import { prisma } from "../lib/db";
 import { getMondayOfWeek, todayKey } from "../lib/dates";
 
 const employeeSeed = [
-  { name: "Priya", role: "Shift Lead", hourlyRate: 28 },
-  { name: "Jake", role: "Scooper", hourlyRate: 22 },
-  { name: "Chloe", role: "Cashier", hourlyRate: 23 },
-  { name: "Ravi", role: "Scooper", hourlyRate: 21 },
-  { name: "Mia", role: "Cashier", hourlyRate: 21.5 },
+  {
+    name: "Priya",
+    role: "Shift Lead",
+    hourlyRate: 28,
+    saturdayRate: 32,
+    sundayRate: 34,
+    publicHolidayRate: 42,
+    availableDays: "mon,tue,wed,thu,fri,sat,sun",
+  },
+  {
+    name: "Jake",
+    role: "Scooper",
+    hourlyRate: 22,
+    saturdayRate: 26,
+    availableDays: "mon,tue,wed,thu,fri,sat",
+  },
+  {
+    name: "Chloe",
+    role: "Cashier",
+    hourlyRate: 23,
+    availableDays: "mon,tue,wed,thu,fri,sat,sun",
+  },
+  {
+    name: "Ravi",
+    role: "Scooper",
+    hourlyRate: 21,
+    availableDays: "wed,thu,fri,sat,sun",
+  },
+  {
+    name: "Mia",
+    role: "Cashier",
+    hourlyRate: 21.5,
+    availableDays: "mon,tue,wed,thu,fri",
+  },
 ];
 
 const days = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
@@ -44,6 +73,16 @@ async function main() {
     },
   });
 
+  await prisma.user.create({
+    data: {
+      shopId: shop.id,
+      email: process.env.SEED_STAFF_EMAIL ?? "staff@synk.app",
+      name: "Demo Staff",
+      role: "VIEWER",
+      passwordHash,
+    },
+  });
+
   const employees = await Promise.all(
     employeeSeed.map((emp) =>
       prisma.employee.create({
@@ -73,12 +112,13 @@ async function main() {
     data: {
       shopId: shop.id,
       date: yesterdayKey,
-      grossSales: 1842.5,
-      cardSales: 1120,
-      cashSales: 742.5,
-      refunds: 18,
-      transactionCount: 156,
-      notes: "Busy Friday evening rush",
+      grossSales: 635.69,
+      cardSales: 562.89,
+      cashSales: 72.8,
+      tillCash: 152.75,
+      expensesAmount: 0,
+      staffSignature: "Demo Staff",
+      floatTarget: 1100,
     },
   });
 
@@ -97,23 +137,27 @@ async function main() {
     data: {
       shopId: shop.id,
       weekStart,
+      slotsPerDay: 1,
       published: false,
     },
   });
 
   const rosterSlots = days.flatMap((day) =>
-    Array.from({ length: 5 }, (_, slotIndex) => ({
+    Array.from({ length: 1 }, (_, slotIndex) => ({
       rosterWeekId: rosterWeek.id,
       day,
       slotIndex,
       employeeId: null,
+      start: "10:00",
+      end: "18:00",
     })),
   );
 
   await prisma.rosterSlot.createMany({ data: rosterSlots });
 
   console.log("Seed complete.");
-  console.log(`Login: ${process.env.SEED_EMAIL ?? "manager@synk.app"}`);
+  console.log(`Manager: ${process.env.SEED_EMAIL ?? "manager@synk.app"}`);
+  console.log(`Staff:   ${process.env.SEED_STAFF_EMAIL ?? "staff@synk.app"}`);
   console.log(`Password: ${process.env.SEED_PASSWORD ?? "synk1234"}`);
 }
 
