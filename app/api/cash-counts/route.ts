@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { canManage, requireSessionUser } from "@/lib/auth/session";
-import { prisma } from "@/lib/db";
 import { cashCountSchema } from "@/lib/validations";
 import { jsonError, parseJson, zodError } from "@/lib/server/api";
 import { writeAuditLog } from "@/lib/server/audit";
+import { upsertCashCount } from "@/lib/firestore/repository";
 
 export async function POST(request: Request) {
   try {
@@ -16,20 +16,7 @@ export async function POST(request: Request) {
 
     const data = parsed.data;
 
-    const count = await prisma.cashCount.upsert({
-      where: {
-        shopId_date: { shopId: user.shopId, date: data.date },
-      },
-      create: {
-        shopId: user.shopId,
-        ...data,
-      },
-      update: {
-        openingFloat: data.openingFloat,
-        countedCash: data.countedCash,
-        notes: data.notes,
-      },
-    });
+    const count = await upsertCashCount(user.shopId, data);
 
     await writeAuditLog({
       shopId: user.shopId,

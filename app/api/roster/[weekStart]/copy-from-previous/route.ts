@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { canManage, requireSessionUser } from "@/lib/auth/session";
-import { prisma } from "@/lib/db";
 import { DAYS } from "@/lib/constants";
 import type { DayKey } from "@/lib/types";
 import { parseDateKey, toDateKey } from "@/lib/dates";
@@ -8,6 +7,11 @@ import { ensureRosterWeekInDb } from "@/lib/server/app-state";
 import { jsonError, parseJson, zodError } from "@/lib/server/api";
 import { writeAuditLog } from "@/lib/server/audit";
 import { copyRosterFromPreviousSchema } from "@/lib/validations";
+import {
+  ensureRosterWeekRecord,
+  findRosterWeekByWeekStart,
+  replaceRosterWeek,
+} from "@/lib/firestore/repository";
 
 const DAY_KEYS = DAYS.map((d) => d.key);
 
@@ -43,49 +47,6 @@ function hasFilledSlots(slots: SourceSlot[]): boolean {
   return slots.some((s) => s.employeeId !== null);
 }
 
-async function applyCopy(
-  targetId: string,
-  slotsPerDay: number,
-  sourceSlots: SourceSlot[],
-) {
-  await prisma.$transaction(async (tx) => {
-    await tx.rosterSlot.deleteMany({ where: { rosterWeekId: targetId } });
-
-    await tx.rosterWeek.update({
-      where: { id: targetId },
-      data: {
-        slotsPerDay,
-        published: false,
-        publishedAt: null,
-      },
-    });
-
-    if (sourceSlots.length > 0) {
-      await tx.rosterSlot.createMany({
-        data: sourceSlots.map((slot) => ({
-          rosterWeekId: targetId,
-          day: slot.day,
-          slotIndex: slot.slotIndex,
-          employeeId: slot.employeeId,
-          start: slot.start,
-          end: slot.end,
-        })),
-      });
-    } else {
-      await tx.rosterSlot.createMany({
-        data: DAY_KEYS.flatMap((day) =>
-          Array.from({ length: slotsPerDay }, (_, slotIndex) => ({
-            rosterWeekId: targetId,
-            day,
-            slotIndex,
-            employeeId: null,
-          })),
-        ),
-      });
-    }
-  });
-}
-
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ weekStart: string }> },
@@ -111,20 +72,18 @@ export async function POST(
       slotsPerDay = local.slotsPerDay;
       sourceSlots = local.slots;
     } else {
-      const source = await prisma.rosterWeek.findUnique({
-        where: { shopId_weekStart: { shopId: user.shopId, weekStart: sourceWeekStart } },
-        include: { slots: true },
-      });
-
+      const source = await findRosterWeekByWeekStart(user.shopId, sourceWeekStart);
       if (source) {
         slotsPerDay = source.slotsPerDay;
-        sourceSlots = source.slots.map((slot) => ({
-          day: slot.day,
-          slotIndex: slot.slotIndex,
-          employeeId: slot.employeeId,
-          start: slot.start,
-          end: slot.end,
-        }));
+        sourceSlots = DAY_KEYS.flatMap((day) =>
+          source.slots[day].map((slot) => ({
+            day,
+            slotIndex: slot.slotIndex,
+            employeeId: slot.employeeId,
+            start: slot.start,
+            end: slot.end,
+          })),
+        );
       }
     }
 
@@ -136,13 +95,8 @@ export async function POST(
       });
     }
 
-    await ensureRosterWeekInDb(user.shopId, weekStart);
-
-    const target = await prisma.rosterWeek.findUniqueOrThrow({
-      where: { shopId_weekStart: { shopId: user.shopId, weekStart } },
-    });
-
-    await applyCopy(target.id, slotsPerDay, sourceSlots);
+    const target = await ensureRosterWeekRecord(user.shopId, weekStart);
+    await replaceRosterWeek(user.shopId, weekStart, slotsPerDay, sourceSlots);
 
     await writeAuditLog({
       shopId: user.shopId,

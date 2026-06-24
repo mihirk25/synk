@@ -1,22 +1,18 @@
-import type { DayKey, RosterWeek, AppState } from "@/lib/types";
-import { DAYS, ROSTER_SLOTS_PER_DAY } from "@/lib/constants";
+import type { AppState, RosterWeek } from "@/lib/types";
 import { parseDenomCounts } from "@/lib/eodClosing";
-import { createEmptyDaySlots } from "@/lib/roster";
 import { parseAvailability } from "@/lib/availability";
-import { prisma } from "@/lib/db";
+import {
+  ensureRosterWeekRecord,
+  listCashCounts,
+  listEodReports,
+  listEmployees,
+  listRosterWeeks,
+  listShiftLogs,
+  type EmployeeRecord,
+  type RosterWeekRecord,
+} from "@/lib/firestore/repository";
 
-const DAY_KEYS = DAYS.map((d) => d.key);
-
-function mapEmployee(e: {
-  id: string;
-  name: string;
-  role: string;
-  hourlyRate: number;
-  saturdayRate: number | null;
-  sundayRate: number | null;
-  publicHolidayRate: number | null;
-  availableDays: string;
-}) {
+export function mapEmployee(e: EmployeeRecord) {
   return {
     id: e.id,
     name: e.name,
@@ -29,20 +25,23 @@ function mapEmployee(e: {
   };
 }
 
+function rosterWeekFromRecord(week: RosterWeekRecord): RosterWeek {
+  return {
+    weekStart: week.weekStart,
+    published: week.published,
+    publishedAt: week.publishedAt?.toISOString(),
+    slotsPerDay: week.slotsPerDay,
+    slots: week.slots,
+  };
+}
+
 export async function fetchAppState(shopId: string): Promise<AppState> {
   const [employees, shiftLogs, eodReports, cashCounts, rosterWeeks] = await Promise.all([
-    prisma.employee.findMany({
-      where: { shopId, active: true },
-      orderBy: { name: "asc" },
-    }),
-    prisma.shiftLog.findMany({ where: { shopId }, orderBy: { date: "desc" } }),
-    prisma.eodReport.findMany({ where: { shopId }, orderBy: { date: "desc" } }),
-    prisma.cashCount.findMany({ where: { shopId }, orderBy: { date: "desc" } }),
-    prisma.rosterWeek.findMany({
-      where: { shopId },
-      include: { slots: true },
-      orderBy: { weekStart: "desc" },
-    }),
+    listEmployees(shopId),
+    listShiftLogs(shopId),
+    listEodReports(shopId),
+    listCashCounts(shopId),
+    listRosterWeeks(shopId),
   ]);
 
   return {
@@ -60,16 +59,16 @@ export async function fetchAppState(shopId: string): Promise<AppState> {
       grossSales: r.grossSales,
       cardSales: r.cardSales,
       cashSales: r.cashSales,
-      refunds: r.refunds,
-      transactionCount: r.transactionCount,
+      refunds: r.refunds ?? 0,
+      transactionCount: r.transactionCount ?? 0,
       notes: r.notes ?? undefined,
-      tillCash: r.tillCash,
-      expensesAmount: r.expensesAmount,
+      tillCash: r.tillCash ?? 0,
+      expensesAmount: r.expensesAmount ?? 0,
       expenseNotes: r.expenseNotes ?? undefined,
       urgentStock: r.urgentStock ?? undefined,
       staffSignature: r.staffSignature ?? undefined,
-      floatTarget: r.floatTarget,
-      denomCounts: parseDenomCounts(r.denomCounts),
+      floatTarget: r.floatTarget ?? 1100,
+      denomCounts: parseDenomCounts(r.denomCounts ?? null),
     })),
     cashCounts: cashCounts.map((c) => ({
       id: c.id,
@@ -78,81 +77,13 @@ export async function fetchAppState(shopId: string): Promise<AppState> {
       countedCash: c.countedCash,
       notes: c.notes ?? undefined,
     })),
-    rosterWeeks: rosterWeeks.map((week) => rosterWeekFromDb(week)),
-  };
-}
-
-function rosterWeekFromDb(week: {
-  weekStart: string;
-  published: boolean;
-  publishedAt: Date | null;
-  slotsPerDay: number;
-  slots: Array<{
-    day: DayKey;
-    slotIndex: number;
-    employeeId: string | null;
-    start: string;
-    end: string;
-  }>;
-}): RosterWeek {
-  const slotsPerDay = week.slotsPerDay || ROSTER_SLOTS_PER_DAY;
-  const maxIndex = week.slots.reduce((m, s) => Math.max(m, s.slotIndex), slotsPerDay - 1);
-  const count = Math.max(slotsPerDay, maxIndex + 1);
-
-  const slots = DAY_KEYS.reduce(
-    (acc, day) => {
-      acc[day] = createEmptyDaySlots(count);
-      return acc;
-    },
-    {} as RosterWeek["slots"],
-  );
-
-  for (const slot of week.slots) {
-    if (slot.slotIndex < 0 || slot.slotIndex >= count) continue;
-    slots[slot.day][slot.slotIndex] = {
-      slotIndex: slot.slotIndex,
-      employeeId: slot.employeeId,
-      start: slot.start,
-      end: slot.end,
-    };
-  }
-
-  return {
-    weekStart: week.weekStart,
-    published: week.published,
-    publishedAt: week.publishedAt?.toISOString(),
-    slotsPerDay: count,
-    slots,
+    rosterWeeks: rosterWeeks.map(rosterWeekFromRecord),
   };
 }
 
 export async function ensureRosterWeekInDb(shopId: string, weekStart: string) {
-  let week = await prisma.rosterWeek.findUnique({
-    where: { shopId_weekStart: { shopId, weekStart } },
-    include: { slots: true },
-  });
-
-  if (!week) {
-    week = await prisma.rosterWeek.create({
-      data: {
-        shopId,
-        weekStart,
-        slotsPerDay: ROSTER_SLOTS_PER_DAY,
-        slots: {
-          create: DAY_KEYS.flatMap((day) =>
-            Array.from({ length: ROSTER_SLOTS_PER_DAY }, (_, slotIndex) => ({
-              day,
-              slotIndex,
-              employeeId: null,
-            })),
-          ),
-        },
-      },
-      include: { slots: true },
-    });
-  }
-
-  return rosterWeekFromDb(week);
+  const week = await ensureRosterWeekRecord(shopId, weekStart);
+  return rosterWeekFromRecord(week);
 }
 
-export { mapEmployee };
+export { rosterWeekFromRecord as rosterWeekFromDb };

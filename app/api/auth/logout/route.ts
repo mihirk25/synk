@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { prisma } from "@/lib/db";
+import { invalidateSession } from "@/lib/auth/session";
 import { SESSION_COOKIE } from "@/lib/auth/constants";
 
 export async function POST() {
@@ -8,7 +8,7 @@ export async function POST() {
   const token = cookieStore.get(SESSION_COOKIE)?.value;
 
   if (token) {
-    await prisma.session.deleteMany({ where: { token } }).catch(() => {});
+    await invalidateSession(token);
   }
 
   const response = NextResponse.json({ ok: true });

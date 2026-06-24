@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { canSubmitEod, requireSessionUser } from "@/lib/auth/session";
-import { prisma } from "@/lib/db";
 import { closingTotal, parseDenomCounts } from "@/lib/eodClosing";
 import { eodReportSchema } from "@/lib/validations";
 import { jsonError, parseJson, zodError } from "@/lib/server/api";
 import { writeAuditLog } from "@/lib/server/audit";
+import { upsertEodReport } from "@/lib/firestore/repository";
 
 function mapReport(report: {
   id: string;
@@ -54,38 +54,20 @@ export async function POST(request: Request) {
     const data = parsed.data;
     const grossSales = closingTotal(data.reportCash, data.eftpos);
 
-    const report = await prisma.eodReport.upsert({
-      where: {
-        shopId_date: { shopId: user.shopId, date: data.date },
-      },
-      create: {
-        shopId: user.shopId,
-        date: data.date,
-        grossSales,
-        cardSales: data.eftpos,
-        cashSales: data.reportCash,
-        refunds: 0,
-        transactionCount: 0,
-        tillCash: data.tillCash,
-        expensesAmount: data.expensesAmount,
-        expenseNotes: data.expenseNotes ?? null,
-        urgentStock: data.urgentStock ?? null,
-        staffSignature: data.staffSignature,
-        floatTarget: data.floatTarget,
-        denomCounts: JSON.stringify(data.denomCounts),
-      },
-      update: {
-        grossSales,
-        cardSales: data.eftpos,
-        cashSales: data.reportCash,
-        tillCash: data.tillCash,
-        expensesAmount: data.expensesAmount,
-        expenseNotes: data.expenseNotes ?? null,
-        urgentStock: data.urgentStock ?? null,
-        staffSignature: data.staffSignature,
-        floatTarget: data.floatTarget,
-        denomCounts: JSON.stringify(data.denomCounts),
-      },
+    const report = await upsertEodReport(user.shopId, {
+      date: data.date,
+      grossSales,
+      cardSales: data.eftpos,
+      cashSales: data.reportCash,
+      refunds: 0,
+      transactionCount: 0,
+      tillCash: data.tillCash,
+      expensesAmount: data.expensesAmount,
+      expenseNotes: data.expenseNotes ?? null,
+      urgentStock: data.urgentStock ?? null,
+      staffSignature: data.staffSignature,
+      floatTarget: data.floatTarget,
+      denomCounts: JSON.stringify(data.denomCounts),
     });
 
     await writeAuditLog({

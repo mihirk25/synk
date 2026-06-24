@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 import { canManage, requireSessionUser } from "@/lib/auth/session";
-import { prisma } from "@/lib/db";
 import { employeeSchema } from "@/lib/validations";
 import { mapEmployee } from "@/lib/server/app-state";
-import { parseAvailability, serializeAvailability } from "@/lib/availability";
+import { serializeAvailability } from "@/lib/availability";
 import { jsonError, parseJson, zodError } from "@/lib/server/api";
 import { writeAuditLog } from "@/lib/server/audit";
+import { createEmployee } from "@/lib/firestore/repository";
 
 export async function POST(request: Request) {
   try {
@@ -19,17 +19,13 @@ export async function POST(request: Request) {
     const { name, hourlyRate, saturdayRate, sundayRate, publicHolidayRate, availability } =
       parsed.data;
 
-    const employee = await prisma.employee.create({
-      data: {
-        shopId: user.shopId,
-        name,
-        role: "Staff",
-        hourlyRate,
-        saturdayRate,
-        sundayRate,
-        publicHolidayRate,
-        availableDays: serializeAvailability(availability),
-      },
+    const employee = await createEmployee(user.shopId, {
+      name,
+      hourlyRate,
+      saturdayRate,
+      sundayRate,
+      publicHolidayRate,
+      availableDays: serializeAvailability(availability),
     });
 
     await writeAuditLog({

@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/db";
+import { createAuditLog } from "@/lib/firestore/repository";
 
 export async function writeAuditLog(input: {
   shopId: string;
@@ -8,14 +8,5 @@ export async function writeAuditLog(input: {
   entityId: string;
   metadata?: Record<string, unknown>;
 }) {
-  await prisma.auditLog.create({
-    data: {
-      shopId: input.shopId,
-      userId: input.userId,
-      action: input.action,
-      entityType: input.entityType,
-      entityId: input.entityId,
-      metadata: input.metadata ? JSON.stringify(input.metadata) : null,
-    },
-  });
+  await createAuditLog(input);
 }

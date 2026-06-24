@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 import { canManage, requireSessionUser } from "@/lib/auth/session";
-import { prisma } from "@/lib/db";
 import { ensureRosterWeekInDb } from "@/lib/server/app-state";
 import { jsonError } from "@/lib/server/api";
 import { writeAuditLog } from "@/lib/server/audit";
+import {
+  ensureRosterWeekRecord,
+  setRosterPublished,
+} from "@/lib/firestore/repository";
 
 async function setPublished(
   shopId: string,
@@ -11,15 +14,9 @@ async function setPublished(
   weekStart: string,
   published: boolean,
 ) {
-  await ensureRosterWeekInDb(shopId, weekStart);
+  const week = await ensureRosterWeekRecord(shopId, weekStart);
 
-  const week = await prisma.rosterWeek.update({
-    where: { shopId_weekStart: { shopId, weekStart } },
-    data: {
-      published,
-      publishedAt: published ? new Date() : null,
-    },
-  });
+  await setRosterPublished(shopId, weekStart, published);
 
   await writeAuditLog({
     shopId,

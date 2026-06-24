@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { canManage, requireSessionUser } from "@/lib/auth/session";
-import { prisma } from "@/lib/db";
 import { shiftLogSchema } from "@/lib/validations";
 import { jsonError, parseJson, zodError } from "@/lib/server/api";
 import { writeAuditLog } from "@/lib/server/audit";
+import { createShiftLog, findEmployee } from "@/lib/firestore/repository";
 
 export async function POST(request: Request) {
   try {
@@ -16,19 +16,15 @@ export async function POST(request: Request) {
 
     const { date, employeeId, hours, notes } = parsed.data;
 
-    const employee = await prisma.employee.findFirst({
-      where: { id: employeeId, shopId: user.shopId, active: true },
-    });
+    const employee = await findEmployee(user.shopId, employeeId);
     if (!employee) return jsonError("Employee not found", 404);
 
-    const log = await prisma.shiftLog.create({
-      data: {
-        shopId: user.shopId,
-        employeeId,
-        date,
-        hours,
-        notes,
-      },
+    const log = await createShiftLog({
+      shopId: user.shopId,
+      employeeId,
+      date,
+      hours,
+      notes,
     });
 
     await writeAuditLog({

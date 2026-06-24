@@ -1,48 +1,75 @@
-# Deploy Synk
+# Deploy Synk on Vercel + Firebase
 
-Synk uses **SQLite** locally. For production, deploy with a **persistent disk** (Railway recommended).
+Synk uses **Firebase Firestore** as the database. Deploy the Next.js app on **Vercel** and connect it to your Firebase project.
 
-## 1. Push code to GitHub
+## 1. Set up Firebase
+
+1. Go to [console.firebase.google.com](https://console.firebase.google.com) and create a project (e.g. `synk-app`).
+2. In the project, open **Build → Firestore Database** → **Create database** → start in **production mode** (we use server-side rules via Admin SDK).
+3. Open **Project settings** (gear icon) → **Service accounts** → **Generate new private key**.
+4. Save the JSON file — you will add it to Vercel as an environment variable.
+
+## 2. Push code to GitHub
 
 ```bash
 git add .
-git commit -m "Prepare Synk for deployment"
+git commit -m "Switch to Firebase Firestore for Vercel deployment"
 git push origin main
 ```
 
-## 2. Deploy on Railway
+## 3. Deploy on Vercel
 
-1. Go to [railway.app](https://railway.app) and sign in with GitHub.
-2. **New Project** → **Deploy from GitHub repo** → select `mihirk25/synk`.
-3. Railway will detect the `Dockerfile` and build automatically.
-4. Open your service → **Settings** → **Networking** → **Generate domain** (e.g. `synk-production.up.railway.app`).
-5. Add a **Volume**:
-   - Mount path: `/data`
-   - This keeps your database across deploys.
-6. Set environment variables (optional — defaults work for first deploy):
+1. Go to [vercel.com](https://vercel.com) → **Add New** → **Project** → import `mihirk25/synk`.
+2. Under **Environment Variables**, add:
 
-   | Variable | Value |
-   |----------|--------|
-   | `DATABASE_URL` | `file:/data/prod.db` |
-   | `NODE_ENV` | `production` |
+   | Name | Value |
+   |------|--------|
+   | `FIREBASE_SERVICE_ACCOUNT_KEY` | Paste the **entire** service account JSON as one line |
 
-7. After the first successful deploy, seed demo data (one time):
+   Alternatively, use three variables instead:
+   - `FIREBASE_PROJECT_ID`
+   - `FIREBASE_CLIENT_EMAIL`
+   - `FIREBASE_PRIVATE_KEY` (keep `\n` for newlines in the key)
 
-   ```bash
-   railway run npx prisma db seed
-   ```
+3. Click **Deploy**.
 
-   Or use Railway’s **Shell** in the dashboard and run the same command.
+## 4. Seed demo data (one time)
 
-## 3. Log in
+On your computer, with Firebase credentials in `.env`:
 
-Open your Railway URL and sign in with:
+```bash
+npm install
+npm run db:seed
+```
+
+This creates demo users, staff, and sample data in Firestore.
+
+## 5. Log in
+
+Open your Vercel URL:
 
 - **Manager:** `manager@synk.app` / `synk1234`
 - **Staff:** `staff@synk.app` / `synk1234`
 
-Change these passwords before sharing the app with your team.
+Change these passwords before sharing the live app.
 
-## Why not Vercel?
+## Local development
 
-Vercel is serverless and does not keep a SQLite file between requests. To use Vercel you would need to switch the database to **PostgreSQL** (e.g. Neon). Railway + volume is the fastest path with your current setup.
+1. Copy `.env.example` to `.env`.
+2. Add your `FIREBASE_SERVICE_ACCOUNT_KEY` (or the three separate Firebase vars).
+3. Run:
+
+```bash
+npm install
+npm run db:seed
+npm run dev
+```
+
+## Firestore indexes
+
+If Firebase asks you to create indexes (e.g. for `users` by `email`), click the link in the error message in Vercel logs, or add them in the Firebase console under **Firestore → Indexes**.
+
+## Notes
+
+- The app uses the **Firebase Admin SDK** on the server only — no client Firebase config is needed.
+- Sessions and all shop data live in Firestore collections under your Firebase project.

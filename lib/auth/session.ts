@@ -1,5 +1,8 @@
 import { cookies } from "next/headers";
-import { prisma } from "@/lib/db";
+import {
+  deleteSession,
+  getSessionByToken,
+} from "@/lib/firestore/repository";
 import { SESSION_COOKIE } from "./constants";
 
 export type AuthUser = {
@@ -16,17 +19,8 @@ export async function getSessionUser(): Promise<AuthUser | null> {
   const token = cookieStore.get(SESSION_COOKIE)?.value;
   if (!token) return null;
 
-  const session = await prisma.session.findUnique({
-    where: { token },
-    include: { user: { include: { shop: true } } },
-  });
-
-  if (!session || session.expiresAt < new Date()) {
-    if (session) {
-      await prisma.session.delete({ where: { id: session.id } }).catch(() => {});
-    }
-    return null;
-  }
+  const session = await getSessionByToken(token);
+  if (!session) return null;
 
   return {
     id: session.user.id,
@@ -34,7 +28,7 @@ export async function getSessionUser(): Promise<AuthUser | null> {
     name: session.user.name,
     role: session.user.role,
     shopId: session.user.shopId,
-    shopName: session.user.shop.name,
+    shopName: session.shop.name,
   };
 }
 
@@ -47,6 +41,10 @@ export async function requireSessionUser(): Promise<AuthUser> {
     });
   }
   return user;
+}
+
+export async function invalidateSession(token: string) {
+  await deleteSession(token);
 }
 
 export function canManage(user: AuthUser): boolean {

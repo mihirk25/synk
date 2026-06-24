@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
 import { verifyPassword } from "@/lib/auth/password";
 import { SESSION_COOKIE, cookieOptions, sessionExpiry } from "@/lib/auth/constants";
 import { loginSchema } from "@/lib/validations";
 import { jsonError, parseJson, zodError } from "@/lib/server/api";
+import { createSession, findUserByEmail } from "@/lib/firestore/repository";
 import { randomUUID } from "crypto";
 
 const loginAttempts = new Map<string, { count: number; resetAt: number }>();
@@ -33,9 +33,7 @@ export async function POST(request: NextRequest) {
     return jsonError("Too many login attempts. Try again later.", 429);
   }
 
-  const user = await prisma.user.findUnique({
-    where: { email: email.toLowerCase() },
-  });
+  const user = await findUserByEmail(email);
 
   if (!user || !(await verifyPassword(password, user.passwordHash))) {
     return jsonError("Invalid email or password", 401);
@@ -44,13 +42,7 @@ export async function POST(request: NextRequest) {
   const token = randomUUID();
   const expiresAt = sessionExpiry();
 
-  await prisma.session.create({
-    data: {
-      userId: user.id,
-      token,
-      expiresAt,
-    },
-  });
+  await createSession({ token, userId: user.id, expiresAt });
 
   const response = NextResponse.json({
     user: {

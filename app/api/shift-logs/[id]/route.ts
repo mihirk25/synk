@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { canManage, requireSessionUser } from "@/lib/auth/session";
-import { prisma } from "@/lib/db";
 import { jsonError } from "@/lib/server/api";
 import { writeAuditLog } from "@/lib/server/audit";
+import { deleteShiftLog, findShiftLog } from "@/lib/firestore/repository";
 
 export async function DELETE(
   _request: Request,
@@ -14,12 +14,10 @@ export async function DELETE(
 
     const { id } = await params;
 
-    const existing = await prisma.shiftLog.findFirst({
-      where: { id, shopId: user.shopId },
-    });
+    const existing = await findShiftLog(user.shopId, id);
     if (!existing) return jsonError("Shift log not found", 404);
 
-    await prisma.shiftLog.delete({ where: { id } });
+    await deleteShiftLog(id);
 
     await writeAuditLog({
       shopId: user.shopId,

@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
 import { canManage, requireSessionUser } from "@/lib/auth/session";
-import { prisma } from "@/lib/db";
 import { rosterSlotSchema } from "@/lib/validations";
 import { ensureRosterWeekInDb } from "@/lib/server/app-state";
 import { jsonError, parseJson, zodError } from "@/lib/server/api";
 import { writeAuditLog } from "@/lib/server/audit";
 import { parseAvailability } from "@/lib/availability";
 import { isEmployeeAvailableForShift } from "@/lib/employeePay";
+import {
+  ensureRosterWeekRecord,
+  findEmployee,
+  updateRosterSlot,
+} from "@/lib/firestore/repository";
 
 export async function PATCH(
   request: Request,
@@ -24,9 +28,7 @@ export async function PATCH(
     const { day, slotIndex, employeeId, start, end } = parsed.data;
 
     if (employeeId) {
-      const employee = await prisma.employee.findFirst({
-        where: { id: employeeId, shopId: user.shopId, active: true },
-      });
+      const employee = await findEmployee(user.shopId, employeeId);
       if (!employee) return jsonError("Employee not found", 404);
 
       const mapped = {
@@ -45,41 +47,13 @@ export async function PATCH(
       }
     }
 
-    await ensureRosterWeekInDb(user.shopId, weekStart);
+    const rosterWeek = await ensureRosterWeekRecord(user.shopId, weekStart);
 
-    const rosterWeek = await prisma.rosterWeek.findUniqueOrThrow({
-      where: { shopId_weekStart: { shopId: user.shopId, weekStart } },
+    await updateRosterSlot(user.shopId, weekStart, day, slotIndex, {
+      employeeId,
+      start,
+      end,
     });
-
-    await prisma.rosterSlot.upsert({
-      where: {
-        rosterWeekId_day_slotIndex: {
-          rosterWeekId: rosterWeek.id,
-          day,
-          slotIndex,
-        },
-      },
-      create: {
-        rosterWeekId: rosterWeek.id,
-        day,
-        slotIndex,
-        employeeId,
-        start,
-        end,
-      },
-      update: {
-        employeeId,
-        start,
-        end,
-      },
-    });
-
-    if (rosterWeek.published) {
-      await prisma.rosterWeek.update({
-        where: { id: rosterWeek.id },
-        data: { published: false, publishedAt: null },
-      });
-    }
 
     await writeAuditLog({
       shopId: user.shopId,

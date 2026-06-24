@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { canManage, requireSessionUser } from "@/lib/auth/session";
-import { prisma } from "@/lib/db";
-import { DAYS, MAX_ROSTER_SLOTS_PER_DAY } from "@/lib/constants";
+import { MAX_ROSTER_SLOTS_PER_DAY } from "@/lib/constants";
 import { ensureRosterWeekInDb } from "@/lib/server/app-state";
 import { jsonError } from "@/lib/server/api";
 import { writeAuditLog } from "@/lib/server/audit";
-
-const DAY_KEYS = DAYS.map((d) => d.key);
+import {
+  addRosterSlotRow,
+  ensureRosterWeekRecord,
+} from "@/lib/firestore/repository";
 
 export async function POST(
   _request: Request,
@@ -17,36 +18,14 @@ export async function POST(
     if (!canManage(user)) return jsonError("Forbidden", 403);
 
     const { weekStart } = await params;
-    await ensureRosterWeekInDb(user.shopId, weekStart);
-
-    const rosterWeek = await prisma.rosterWeek.findUniqueOrThrow({
-      where: { shopId_weekStart: { shopId: user.shopId, weekStart } },
-    });
+    const rosterWeek = await ensureRosterWeekRecord(user.shopId, weekStart);
 
     if (rosterWeek.slotsPerDay >= MAX_ROSTER_SLOTS_PER_DAY) {
       return jsonError(`Maximum ${MAX_ROSTER_SLOTS_PER_DAY} slots per day`, 400);
     }
 
     const newIndex = rosterWeek.slotsPerDay;
-
-    await prisma.$transaction([
-      prisma.rosterWeek.update({
-        where: { id: rosterWeek.id },
-        data: {
-          slotsPerDay: newIndex + 1,
-          published: false,
-          publishedAt: null,
-        },
-      }),
-      prisma.rosterSlot.createMany({
-        data: DAY_KEYS.map((day) => ({
-          rosterWeekId: rosterWeek.id,
-          day,
-          slotIndex: newIndex,
-          employeeId: null,
-        })),
-      }),
-    ]);
+    await addRosterSlotRow(user.shopId, weekStart, newIndex);
 
     await writeAuditLog({
       shopId: user.shopId,
