@@ -32,6 +32,7 @@ import {
   ChevronRight,
   Copy,
   Eye,
+  KeyRound,
   Plus,
   UserPlus,
   X,
@@ -134,6 +135,7 @@ export function RosterSection() {
     publishRoster,
     unpublishRoster,
     addEmployee,
+    setEmployeePin,
     addRosterSlotRow,
     copyRosterFromPreviousWeek,
   } = useManagerApp();
@@ -146,6 +148,12 @@ export function RosterSection() {
   const [addingSlot, setAddingSlot] = useState(false);
   const [copyingWeek, setCopyingWeek] = useState(false);
   const [copyNotice, setCopyNotice] = useState<{ tone: "ok" | "warn"; text: string } | null>(null);
+  const [pinManagerOpen, setPinManagerOpen] = useState(false);
+  const [pinDrafts, setPinDrafts] = useState<Record<string, string>>({});
+  const [pinSavingId, setPinSavingId] = useState<string | null>(null);
+  const [pinFeedback, setPinFeedback] = useState<{ id: string; text: string; ok: boolean } | null>(
+    null,
+  );
 
   const stats = rosterStats(currentRoster, state.employees);
   const weekEnd = useMemo(() => getWeekEnd(weekStart), [weekStart]);
@@ -296,6 +304,27 @@ export function RosterSection() {
     return state.employees.find((e) => e.id === id)?.name ?? "Unknown";
   }
 
+  async function handleSavePin(employeeId: string) {
+    const pin = pinDrafts[employeeId] ?? "";
+    if (!/^\d{4,6}$/.test(pin)) {
+      setPinFeedback({ id: employeeId, text: "PIN must be 4–6 digits", ok: false });
+      return;
+    }
+
+    setPinSavingId(employeeId);
+    setPinFeedback(null);
+    try {
+      await setEmployeePin(employeeId, pin);
+      setPinDrafts((prev) => ({ ...prev, [employeeId]: "" }));
+      setPinFeedback({ id: employeeId, text: "PIN saved", ok: true });
+      setTimeout(() => setPinFeedback((f) => (f?.id === employeeId ? null : f)), 2500);
+    } catch {
+      setPinFeedback({ id: employeeId, text: "Could not save PIN", ok: false });
+    } finally {
+      setPinSavingId(null);
+    }
+  }
+
   const editorEmployees = editor
     ? availableEmployeesForEditor(editor.day, editor.start, editor.end)
     : [];
@@ -358,6 +387,17 @@ export function RosterSection() {
           >
             <UserPlus className="h-4 w-4" />
             Add staff
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setPinFeedback(null);
+              setPinManagerOpen(true);
+            }}
+            className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-[#f0d4dc] bg-white px-4 py-2 text-sm font-medium text-[#6b4f5a] hover:bg-[#fff8f3] sm:flex-none"
+          >
+            <KeyRound className="h-4 w-4" />
+            Staff PINs
           </button>
           <button
             type="button"
@@ -840,6 +880,99 @@ export function RosterSection() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      ) : null}
+
+      {pinManagerOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div
+            className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-[#f0d4dc] bg-white p-6 shadow-xl"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="pin-manager-title"
+          >
+            <div className="mb-5 flex items-center justify-between">
+              <div>
+                <h3 id="pin-manager-title" className="text-lg font-semibold text-[#3d2a32]">
+                  Staff PINs
+                </h3>
+                <p className="mt-1 text-sm text-[#8b5a6b]">
+                  Set a PIN for each staff member so they can sign in and fill the closing form.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPinManagerOpen(false)}
+                className="rounded-lg p-2 text-[#8b5a6b] hover:bg-[#fff0f5]"
+                aria-label="Close"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {state.employees.length === 0 ? (
+              <p className="text-sm text-[#8b5a6b]">Add staff in the roster first.</p>
+            ) : (
+              <ul className="space-y-4">
+                {[...state.employees]
+                  .sort((a, b) => a.name.localeCompare(b.name))
+                  .map((emp) => (
+                    <li
+                      key={emp.id}
+                      className="rounded-xl border border-[#f0d4dc] bg-[#fff8f3] p-4"
+                    >
+                      <div className="mb-3 flex items-center justify-between gap-2">
+                        <p className="font-medium text-[#3d2a32]">{emp.name}</p>
+                        <span
+                          className={`rounded-full px-2.5 py-0.5 text-[10px] font-medium ${
+                            emp.hasPin
+                              ? "bg-[#e8f8ee] text-[#1f5a34]"
+                              : "bg-[#fff5f0] text-[#c43d5a]"
+                          }`}
+                        >
+                          {emp.hasPin ? "PIN set" : "No PIN"}
+                        </span>
+                      </div>
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                        <input
+                          type="password"
+                          inputMode="numeric"
+                          pattern="\d{4,6}"
+                          maxLength={6}
+                          value={pinDrafts[emp.id] ?? ""}
+                          onChange={(e) =>
+                            setPinDrafts((prev) => ({
+                              ...prev,
+                              [emp.id]: e.target.value.replace(/\D/g, ""),
+                            }))
+                          }
+                          placeholder={emp.hasPin ? "New PIN (4–6 digits)" : "PIN (4–6 digits)"}
+                          className="w-full flex-1 rounded-xl border border-[#f0d4dc] bg-white px-3 py-2 text-sm tracking-widest"
+                          autoComplete="off"
+                        />
+                        <button
+                          type="button"
+                          disabled={pinSavingId === emp.id}
+                          onClick={() => handleSavePin(emp.id)}
+                          className="rounded-full bg-[#e85d8a] px-4 py-2 text-sm font-medium text-white hover:bg-[#d44d7a] disabled:opacity-60 sm:shrink-0"
+                        >
+                          {pinSavingId === emp.id ? "Saving…" : emp.hasPin ? "Update" : "Set PIN"}
+                        </button>
+                      </div>
+                      {pinFeedback?.id === emp.id ? (
+                        <p
+                          className={`mt-2 text-xs ${
+                            pinFeedback.ok ? "text-[#1f5a34]" : "text-[#c43d5a]"
+                          }`}
+                        >
+                          {pinFeedback.text}
+                        </p>
+                      ) : null}
+                    </li>
+                  ))}
+              </ul>
+            )}
           </div>
         </div>
       ) : null}

@@ -55,6 +55,7 @@ type ManagerContextValue = {
     availability: AvailabilityKey[];
     pin?: string;
   }) => Promise<void>;
+  setEmployeePin: (employeeId: string, pin: string) => Promise<void>;
   addRosterSlotRow: () => Promise<void>;
   copyRosterFromPreviousWeek: () => Promise<{ copied: boolean; message: string }>;
   saveRosterSlot: (
@@ -278,6 +279,19 @@ export function ManagerAppProvider({
     [],
   );
 
+  const setEmployeePin = useCallback(async (employeeId: string, pin: string) => {
+    await apiFetch(`/api/employees/${employeeId}/pin`, {
+      method: "PATCH",
+      body: JSON.stringify({ pin }),
+    });
+    setState((prev) => ({
+      ...prev,
+      employees: prev.employees.map((e) =>
+        e.id === employeeId ? { ...e, hasPin: true } : e,
+      ),
+    }));
+  }, []);
+
   const addRosterSlotRow = useCallback(async () => {
     const { roster } = await apiFetch<{ roster: RosterWeek }>(
       `/api/roster/${weekStart}/add-slot`,
@@ -374,6 +388,7 @@ export function ManagerAppProvider({
       saveEOD,
       saveCashCount,
       addEmployee,
+      setEmployeePin,
       addRosterSlotRow,
       copyRosterFromPreviousWeek,
       saveRosterSlot,
@@ -399,6 +414,7 @@ export function ManagerAppProvider({
       saveEOD,
       saveCashCount,
       addEmployee,
+      setEmployeePin,
       addRosterSlotRow,
       copyRosterFromPreviousWeek,
       saveRosterSlot,

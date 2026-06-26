@@ -22,6 +22,7 @@ export function mapEmployee(e: EmployeeRecord) {
     sundayRate: e.sundayRate ?? undefined,
     publicHolidayRate: e.publicHolidayRate ?? undefined,
     availability: parseAvailability(e.availableDays),
+    hasPin: Boolean(e.pinHash),
   };
 }
 
