@@ -102,7 +102,7 @@ export function EODSection() {
   const card = parseFloat(eftpos) || 0;
   const expenses = parseFloat(expensesAmount) || 0;
   const difference = cashDifference(till, report);
-  const total = closingTotal(report, card);
+  const total = closingTotal(report, card, expenses);
   const floatCounted = denomTotal(denomCounts);
   const floatTargetNum = parseFloat(floatTarget) || 0;
 

@@ -49,6 +49,6 @@ export function cashDifference(tillCash: number, reportCash: number): number {
   return tillCash - reportCash;
 }
 
-export function closingTotal(reportCash: number, eftpos: number): number {
-  return reportCash + eftpos;
+export function closingTotal(reportCash: number, eftpos: number, expenses = 0): number {
+  return reportCash + eftpos - expenses;
 }

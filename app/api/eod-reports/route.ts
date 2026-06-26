@@ -52,7 +52,7 @@ export async function POST(request: Request) {
     if (!parsed.success) return zodError(parsed.error);
 
     const data = parsed.data;
-    const grossSales = closingTotal(data.reportCash, data.eftpos);
+    const grossSales = closingTotal(data.reportCash, data.eftpos, data.expensesAmount);
 
     const report = await upsertEodReport(user.shopId, {
       date: data.date,
