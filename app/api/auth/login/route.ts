@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyPassword } from "@/lib/auth/password";
-import { SESSION_COOKIE, cookieOptions, sessionExpiry } from "@/lib/auth/constants";
+import {
+  SESSION_COOKIE,
+  SESSION_KIND_COOKIE,
+  cookieOptions,
+  sessionExpiry,
+} from "@/lib/auth/constants";
 import { loginSchema } from "@/lib/validations";
 import { jsonError, parseJson, zodError } from "@/lib/server/api";
 import { createSession, findUserByEmail } from "@/lib/firestore/repository";
@@ -54,5 +59,6 @@ export async function POST(request: NextRequest) {
   });
 
   response.cookies.set(SESSION_COOKIE, token, cookieOptions(expiresAt));
+  response.cookies.set(SESSION_KIND_COOKIE, "manager", cookieOptions(expiresAt));
   return response;
 }

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { invalidateSession } from "@/lib/auth/session";
-import { SESSION_COOKIE } from "@/lib/auth/constants";
+import { SESSION_COOKIE, SESSION_KIND_COOKIE } from "@/lib/auth/constants";
 
 export async function POST() {
   const cookieStore = await cookies();
@@ -12,12 +12,14 @@ export async function POST() {
   }
 
   const response = NextResponse.json({ ok: true });
-  response.cookies.set(SESSION_COOKIE, "", {
+  const clear = {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+    sameSite: "lax" as const,
     path: "/",
     maxAge: 0,
-  });
+  };
+  response.cookies.set(SESSION_COOKIE, "", clear);
+  response.cookies.set(SESSION_KIND_COOKIE, "", clear);
   return response;
 }

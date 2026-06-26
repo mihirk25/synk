@@ -48,6 +48,7 @@ type SlotEditor = {
 
 type StaffForm = {
   name: string;
+  pin: string;
   hourlyRate: string;
   saturdayRate: string;
   sundayRate: string;
@@ -57,6 +58,7 @@ type StaffForm = {
 
 const emptyStaffForm = (): StaffForm => ({
   name: "",
+  pin: "",
   hourlyRate: "",
   saturdayRate: "",
   sundayRate: "",
@@ -248,11 +250,17 @@ export function RosterSection() {
       return;
     }
 
+    if (!/^\d{4,6}$/.test(staffForm.pin)) {
+      setStaffPayError("PIN must be 4–6 digits (staff use this to sign in).");
+      return;
+    }
+
     setStaffPayError(null);
     setSaving(true);
     try {
       await addEmployee({
         name: staffForm.name.trim(),
+        pin: staffForm.pin,
         ...rates,
         availability: staffForm.availability,
       });
@@ -686,6 +694,29 @@ export function RosterSection() {
                   className="w-full rounded-xl border border-[#f0d4dc] px-3 py-2.5 text-sm"
                   placeholder="e.g. Sam"
                 />
+              </label>
+
+              <label className="block">
+                <span className="mb-1 block text-sm font-medium text-[#6b4f5a]">
+                  Staff PIN (4–6 digits)
+                </span>
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  pattern="\d{4,6}"
+                  maxLength={6}
+                  required
+                  value={staffForm.pin}
+                  onChange={(e) =>
+                    setStaffForm({ ...staffForm, pin: e.target.value.replace(/\D/g, "") })
+                  }
+                  className="w-full rounded-xl border border-[#f0d4dc] px-3 py-2.5 text-sm tracking-widest"
+                  placeholder="e.g. 1234"
+                  autoComplete="off"
+                />
+                <p className="mt-1 text-xs text-[#8b5a6b]">
+                  Staff use their name and this PIN to fill the closing form.
+                </p>
               </label>
 
               <div>

@@ -1,4 +1,5 @@
 export const SESSION_COOKIE = "synk_session";
+export const SESSION_KIND_COOKIE = "synk_session_kind";
 export const SESSION_DAYS = 7;
 
 export function sessionExpiry(): Date {

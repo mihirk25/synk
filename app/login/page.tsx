@@ -23,7 +23,7 @@ export default function LoginPage() {
         method: "POST",
         body: JSON.stringify({ email, password }),
       });
-      router.push("/");
+      router.push("/dashboard");
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
@@ -40,7 +40,7 @@ export default function LoginPage() {
             <RefreshCw className="h-7 w-7" />
           </div>
           <h1 className="text-2xl font-semibold text-[#3d2a32]">{PRODUCT_NAME}</h1>
-          <p className="mt-2 text-sm text-[#8b5a6b]">Sign in to your manager dashboard</p>
+          <p className="mt-2 text-sm text-[#8b5a6b]">Manager sign in</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -81,9 +81,9 @@ export default function LoginPage() {
         </form>
 
         <p className="mt-6 text-center text-xs text-[#8b5a6b]">
-          Manager: manager@synk.app · Staff: staff@synk.app
-          <br />
-          Password: synk1234
+          <a href="/" className="underline-offset-2 hover:text-[#e85d8a] hover:underline">
+            Back to home
+          </a>
         </p>
       </div>
     </div>

@@ -53,6 +53,7 @@ type ManagerContextValue = {
     sundayRate: number;
     publicHolidayRate: number;
     availability: AvailabilityKey[];
+    pin?: string;
   }) => Promise<void>;
   addRosterSlotRow: () => Promise<void>;
   copyRosterFromPreviousWeek: () => Promise<{ copied: boolean; message: string }>;
@@ -77,7 +78,19 @@ function upsertRosterWeek(weeks: RosterWeek[], week: RosterWeek): RosterWeek[] {
   return next;
 }
 
-export function ManagerAppProvider({ children }: { children: ReactNode }) {
+export function ManagerAppProvider({
+  children,
+  authRedirect = "/login",
+  logoutRedirect = "/",
+  staffSession = false,
+  managerSession = false,
+}: {
+  children: ReactNode;
+  authRedirect?: string;
+  logoutRedirect?: string;
+  staffSession?: boolean;
+  managerSession?: boolean;
+}) {
   const router = useRouter();
   const [state, setState] = useState<AppState>(createSeedState);
   const [shopName, setShopName] = useState("");
@@ -107,23 +120,40 @@ export function ManagerAppProvider({ children }: { children: ReactNode }) {
       setError(null);
       try {
         const [me, app] = await Promise.all([
-          apiFetch<{ user: { email: string; name: string | null; role: UserRole } }>("/api/auth/me"),
+          apiFetch<{
+            user: {
+              email: string | null;
+              name: string | null;
+              role: UserRole;
+              isStaffPin?: boolean;
+            };
+          }>("/api/auth/me"),
           apiFetch<{ state: AppState; shopName: string }>("/api/app-state"),
         ]);
         if (cancelled) return;
+
+        if (managerSession && me.user.isStaffPin) {
+          router.replace("/close");
+          return;
+        }
+        if (staffSession && !me.user.isStaffPin) {
+          router.replace("/dashboard");
+          return;
+        }
+
         setState(app.state);
         setShopName(app.shopName);
-        setUserEmail(me.user.email);
+        setUserEmail(me.user.email ?? "");
         setUserName(me.user.name ?? "");
         setUserRole(me.user.role);
-        setSection(me.user.role === "VIEWER" ? "eod" : "dashboard");
+        setSection(me.user.role === "VIEWER" || me.user.isStaffPin ? "eod" : "dashboard");
         setSelectedDate(todayKey());
         setWeekStartState(getMondayOfWeek());
       } catch (err) {
         if (cancelled) return;
         if (err instanceof ApiError && err.status === 401) {
           await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
-          router.replace("/login");
+          router.replace(authRedirect);
           return;
         }
         setError(err instanceof Error ? err.message : "Failed to load data");
@@ -172,12 +202,12 @@ export function ManagerAppProvider({ children }: { children: ReactNode }) {
     async (err: unknown) => {
       if (err instanceof ApiError && err.status === 401) {
         await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
-        router.replace("/login");
+        router.replace(authRedirect);
         return true;
       }
       return false;
     },
-    [router],
+    [authRedirect, router],
   );
 
   const saveEOD = useCallback(
@@ -234,6 +264,7 @@ export function ManagerAppProvider({ children }: { children: ReactNode }) {
       sundayRate: number;
       publicHolidayRate: number;
       availability: AvailabilityKey[];
+      pin?: string;
     }) => {
       const { employee } = await apiFetch<{ employee: Employee }>("/api/employees", {
         method: "POST",
@@ -313,9 +344,9 @@ export function ManagerAppProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     await apiFetch("/api/auth/logout", { method: "POST" });
-    router.push("/login");
+    router.push(logoutRedirect);
     router.refresh();
-  }, [router]);
+  }, [logoutRedirect, router]);
 
   const getEmployee = useCallback(
     (id: string) => state.employees.find((e) => e.id === id),
@@ -394,7 +425,7 @@ export function ManagerAppProvider({ children }: { children: ReactNode }) {
           <p className="mt-2 text-sm text-[#8b5a6b]">{error}</p>
           <button
             type="button"
-            onClick={() => router.replace("/login")}
+            onClick={() => router.replace(authRedirect)}
             className="mt-4 rounded-full bg-[#e85d8a] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#d44d7a]"
           >
             Sign in again

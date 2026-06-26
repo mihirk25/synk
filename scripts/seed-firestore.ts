@@ -68,6 +68,7 @@ async function main() {
   });
 
   const passwordHash = await bcrypt.hash(process.env.SEED_PASSWORD ?? "synk1234", 12);
+  const staffPinHash = await bcrypt.hash(process.env.SEED_STAFF_PIN ?? "1234", 12);
   const managerId = randomUUID();
   const staffId = randomUUID();
 
@@ -97,6 +98,7 @@ async function main() {
       await db.collection(COLLECTIONS.employees).doc(id).set({
         shopId,
         ...emp,
+        pinHash: staffPinHash,
         active: true,
         createdAt: now,
         updatedAt: now,

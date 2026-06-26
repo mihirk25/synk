@@ -46,6 +46,15 @@ const availabilityKeyEnum = z.string().regex(
   /^(mon|tue|wed|thu|fri|sat|sun):(morning|afternoon|evening)$/,
 );
 
+export const staffLoginSchema = z.object({
+  employeeId: z.string().min(1),
+  pin: z.string().regex(/^\d{4,6}$/, "PIN must be 4–6 digits"),
+});
+
+export const employeePinSchema = z.object({
+  pin: z.string().regex(/^\d{4,6}$/, "PIN must be 4–6 digits"),
+});
+
 export const employeeSchema = z.object({
   name: z.string().min(1).max(100),
   hourlyRate: z.number().positive(),
@@ -53,6 +62,7 @@ export const employeeSchema = z.object({
   sundayRate: z.number().positive(),
   publicHolidayRate: z.number().positive(),
   availability: z.array(availabilityKeyEnum).min(1),
+  pin: z.string().regex(/^\d{4,6}$/).optional(),
 });
 
 const rosterSlotInputSchema = z.object({

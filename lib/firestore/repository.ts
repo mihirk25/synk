@@ -63,6 +63,7 @@ export type EmployeeRecord = {
   publicHolidayRate: number | null;
   availableDays: string;
   active: boolean;
+  pinHash: string | null;
 };
 
 export type RosterWeekRecord = {
@@ -102,22 +103,62 @@ export async function getShop(shopId: string): Promise<ShopRecord | null> {
   return { id: doc.id, name: data.name };
 }
 
+export async function getDefaultShop(): Promise<ShopRecord | null> {
+  const snap = await db().collection(COLLECTIONS.shops).limit(1).get();
+  const doc = snap.docs[0];
+  if (!doc) return null;
+  return { id: doc.id, name: doc.data().name };
+}
+
+function mapEmployeeDoc(id: string, data: DocumentData): EmployeeRecord {
+  return {
+    id,
+    shopId: String(data.shopId),
+    name: String(data.name),
+    role: String(data.role ?? "Staff"),
+    hourlyRate: Number(data.hourlyRate),
+    saturdayRate: data.saturdayRate != null ? Number(data.saturdayRate) : null,
+    sundayRate: data.sundayRate != null ? Number(data.sundayRate) : null,
+    publicHolidayRate: data.publicHolidayRate != null ? Number(data.publicHolidayRate) : null,
+    availableDays: String(data.availableDays),
+    active: Boolean(data.active),
+    pinHash: data.pinHash ? String(data.pinHash) : null,
+  };
+}
+
 export async function createSession(input: {
   token: string;
   userId: string;
   expiresAt: Date;
 }) {
   await db().collection(COLLECTIONS.sessions).doc(input.token).set({
+    kind: "user",
     userId: input.userId,
     expiresAt: Timestamp.fromDate(input.expiresAt),
     createdAt: FieldValue.serverTimestamp(),
   });
 }
 
-export async function getSessionByToken(token: string): Promise<{
-  user: UserRecord;
-  shop: ShopRecord;
-} | null> {
+export async function createStaffSession(input: {
+  token: string;
+  shopId: string;
+  employeeId: string;
+  expiresAt: Date;
+}) {
+  await db().collection(COLLECTIONS.sessions).doc(input.token).set({
+    kind: "staff",
+    shopId: input.shopId,
+    employeeId: input.employeeId,
+    expiresAt: Timestamp.fromDate(input.expiresAt),
+    createdAt: FieldValue.serverTimestamp(),
+  });
+}
+
+export type SessionAuth =
+  | { kind: "user"; user: UserRecord; shop: ShopRecord }
+  | { kind: "staff"; employee: EmployeeRecord; shop: ShopRecord };
+
+export async function getSessionByToken(token: string): Promise<SessionAuth | null> {
   const sessionDoc = await db().collection(COLLECTIONS.sessions).doc(token).get();
   if (!sessionDoc.exists) return null;
 
@@ -128,7 +169,20 @@ export async function getSessionByToken(token: string): Promise<{
     return null;
   }
 
-  const userDoc = await db().collection(COLLECTIONS.users).doc(session.userId).get();
+  if (session.kind === "staff" || session.employeeId) {
+    const shop = await getShop(String(session.shopId));
+    if (!shop) return null;
+    const employeeDoc = await db()
+      .collection(COLLECTIONS.employees)
+      .doc(String(session.employeeId))
+      .get();
+    if (!employeeDoc.exists) return null;
+    const employee = mapEmployeeDoc(employeeDoc.id, employeeDoc.data()!);
+    if (employee.shopId !== shop.id || !employee.active) return null;
+    return { kind: "staff", employee, shop };
+  }
+
+  const userDoc = await db().collection(COLLECTIONS.users).doc(String(session.userId)).get();
   if (!userDoc.exists) return null;
   const userData = userDoc.data()!;
 
@@ -136,6 +190,7 @@ export async function getSessionByToken(token: string): Promise<{
   if (!shop) return null;
 
   return {
+    kind: "user",
     user: {
       id: userDoc.id,
       shopId: userData.shopId,
@@ -160,22 +215,25 @@ export async function listEmployees(shopId: string): Promise<EmployeeRecord[]> {
     .get();
 
   return snap.docs
-    .map((doc) => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        shopId: data.shopId,
-        name: data.name,
-        role: data.role,
-        hourlyRate: data.hourlyRate,
-        saturdayRate: data.saturdayRate ?? null,
-        sundayRate: data.sundayRate ?? null,
-        publicHolidayRate: data.publicHolidayRate ?? null,
-        availableDays: data.availableDays,
-        active: data.active,
-      };
-    })
+    .map((doc) => mapEmployeeDoc(doc.id, doc.data()))
     .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export async function listStaffLoginEmployees(shopId: string): Promise<{ id: string; name: string }[]> {
+  const employees = await listEmployees(shopId);
+  return employees.filter((e) => e.pinHash).map((e) => ({ id: e.id, name: e.name }));
+}
+
+export async function authenticateStaffPin(
+  shopId: string,
+  employeeId: string,
+  pin: string,
+): Promise<EmployeeRecord | null> {
+  const employee = await findEmployee(shopId, employeeId);
+  if (!employee?.pinHash) return null;
+  const { verifyPassword } = await import("@/lib/auth/password");
+  const ok = await verifyPassword(pin, employee.pinHash);
+  return ok ? employee : null;
 }
 
 export async function findEmployee(
@@ -186,18 +244,17 @@ export async function findEmployee(
   if (!doc.exists) return null;
   const data = doc.data()!;
   if (data.shopId !== shopId || !data.active) return null;
-  return {
-    id: doc.id,
-    shopId: data.shopId,
-    name: data.name,
-    role: data.role,
-    hourlyRate: data.hourlyRate,
-    saturdayRate: data.saturdayRate ?? null,
-    sundayRate: data.sundayRate ?? null,
-    publicHolidayRate: data.publicHolidayRate ?? null,
-    availableDays: data.availableDays,
-    active: data.active,
-  };
+  return mapEmployeeDoc(doc.id, data);
+}
+
+export async function setEmployeePin(shopId: string, employeeId: string, pinHash: string) {
+  const employee = await findEmployee(shopId, employeeId);
+  if (!employee) return false;
+  await db().collection(COLLECTIONS.employees).doc(employeeId).set(
+    { pinHash, updatedAt: FieldValue.serverTimestamp() },
+    { merge: true },
+  );
+  return true;
 }
 
 export async function createEmployee(
@@ -209,6 +266,7 @@ export async function createEmployee(
     sundayRate: number;
     publicHolidayRate: number;
     availableDays: string;
+    pinHash?: string | null;
   },
 ) {
   const id = randomUUID();
@@ -222,6 +280,7 @@ export async function createEmployee(
     sundayRate: data.sundayRate,
     publicHolidayRate: data.publicHolidayRate,
     availableDays: data.availableDays,
+    pinHash: data.pinHash ?? null,
     active: true,
     createdAt: now,
     updatedAt: now,
@@ -238,6 +297,7 @@ export async function createEmployee(
     publicHolidayRate: record.publicHolidayRate,
     availableDays: record.availableDays,
     active: true,
+    pinHash: record.pinHash,
   } satisfies EmployeeRecord;
 }
 

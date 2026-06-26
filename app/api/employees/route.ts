@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { hashPassword } from "@/lib/auth/password";
 import { canManage, requireSessionUser } from "@/lib/auth/session";
 import { employeeSchema } from "@/lib/validations";
 import { mapEmployee } from "@/lib/server/app-state";
@@ -16,8 +17,10 @@ export async function POST(request: Request) {
     const parsed = employeeSchema.safeParse(body);
     if (!parsed.success) return zodError(parsed.error);
 
-    const { name, hourlyRate, saturdayRate, sundayRate, publicHolidayRate, availability } =
+    const { name, hourlyRate, saturdayRate, sundayRate, publicHolidayRate, availability, pin } =
       parsed.data;
+
+    const pinHash = pin ? await hashPassword(pin) : null;
 
     const employee = await createEmployee(user.shopId, {
       name,
@@ -26,6 +29,7 @@ export async function POST(request: Request) {
       sundayRate,
       publicHolidayRate,
       availableDays: serializeAvailability(availability),
+      pinHash,
     });
 
     await writeAuditLog({
