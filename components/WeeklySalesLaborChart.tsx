@@ -63,7 +63,7 @@ export function WeeklySalesLaborChart({ data, selectedDate, onSelectDate }: Prop
     <div className="w-full overflow-x-auto">
       <svg
         viewBox={`0 0 ${CHART_W} ${CHART_H}`}
-        className="w-full min-w-[320px]"
+        className="w-full min-w-0"
         role="img"
         aria-label="Weekly sales and labour comparison"
       >

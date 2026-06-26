@@ -40,7 +40,10 @@ export default function Home() {
                 {PRODUCT_NAME}
               </h1>
               <p className="text-sm text-[#8b5a6b]">
-                {shopName} · {formatDateKey(todayKey(), "long")}
+                {shopName}
+                <span className="text-[#c9a0ad]"> · </span>
+                <span className="sm:hidden">{formatDateKey(todayKey())}</span>
+                <span className="hidden sm:inline">{formatDateKey(todayKey(), "long")}</span>
               </p>
             </div>
           </div>

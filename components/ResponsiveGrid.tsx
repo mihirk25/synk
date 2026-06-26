@@ -1,10 +1,10 @@
 import type { ReactNode } from "react";
 
 const COLS_CLASS = {
-  2: "grid-cols-2 min-w-[36rem]",
-  3: "grid-cols-3 min-w-[48rem]",
-  4: "grid-cols-4 min-w-[64rem]",
-  7: "grid-cols-7 min-w-[44rem]",
+  2: "grid-cols-1 sm:grid-cols-2",
+  3: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3",
+  4: "grid-cols-1 sm:grid-cols-2 lg:grid-cols-4",
+  7: "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7",
 } as const;
 
 type Cols = keyof typeof COLS_CLASS;
@@ -18,9 +18,5 @@ export function ResponsiveGrid({
   children: ReactNode;
   className?: string;
 }) {
-  return (
-    <div className="scroll-x -mx-4 px-4 md:mx-0 md:overflow-visible md:px-0">
-      <div className={`grid gap-4 ${COLS_CLASS[cols]} md:min-w-0 ${className}`}>{children}</div>
-    </div>
-  );
+  return <div className={`grid gap-4 ${COLS_CLASS[cols]} ${className}`}>{children}</div>;
 }

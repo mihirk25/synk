@@ -32,11 +32,11 @@ function FieldRow({
   highlight?: boolean;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 border-b border-[#e8d4dc] py-2.5">
+    <div className="flex flex-col gap-2 border-b border-[#e8d4dc] py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
       <span className="text-sm font-medium text-[#3d2a32]">{label}</span>
       {readOnly ? (
         <span
-          className={`min-w-[5.5rem] text-right text-sm font-semibold ${
+          className={`text-sm font-semibold sm:min-w-[5.5rem] sm:text-right ${
             highlight ? "text-[#c43d5a]" : "text-[#3d2a32]"
           }`}
         >
@@ -49,7 +49,7 @@ function FieldRow({
           step="0.01"
           value={value}
           onChange={(e) => onChange?.(e.target.value)}
-          className="w-28 rounded-lg border border-[#f0d4dc] px-2 py-1.5 text-right text-sm"
+          className="w-full rounded-lg border border-[#f0d4dc] px-3 py-2 text-right text-sm sm:w-28"
         />
       )}
     </div>
@@ -206,7 +206,7 @@ export function EODSection() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-x-6">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-x-6">
               <div className="space-y-2">
                 {LEFT_DENOMS.map((d) => (
                   <div key={d.key} className="flex items-center justify-between gap-2">
@@ -217,7 +217,7 @@ export function EODSection() {
                       step="1"
                       value={denomCounts[d.key] || ""}
                       onChange={(e) => setDenom(d.key, e.target.value)}
-                      className="w-16 rounded border border-[#f0d4dc] px-2 py-1 text-right text-sm"
+                      className="w-20 rounded border border-[#f0d4dc] px-2 py-2 text-right text-sm sm:w-16"
                     />
                   </div>
                 ))}
@@ -232,7 +232,7 @@ export function EODSection() {
                       step="1"
                       value={denomCounts[d.key] || ""}
                       onChange={(e) => setDenom(d.key, e.target.value)}
-                      className="w-16 rounded border border-[#f0d4dc] px-2 py-1 text-right text-sm"
+                      className="w-20 rounded border border-[#f0d4dc] px-2 py-2 text-right text-sm sm:w-16"
                     />
                   </div>
                 ))}
@@ -275,8 +275,8 @@ export function EODSection() {
           </label>
         </div>
 
-        <div className="flex flex-wrap items-end justify-between gap-4 border-t border-[#e8d4dc] bg-[#fff8f3] px-5 py-4">
-          <label className="block min-w-[12rem] flex-1">
+        <div className="flex flex-col gap-4 border-t border-[#e8d4dc] bg-[#fff8f3] px-4 py-4 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between sm:px-5">
+          <label className="block w-full sm:min-w-[12rem] sm:flex-1">
             <span className="mb-1 block text-sm font-semibold text-[#3d2a32]">Staff signature</span>
             <input
               type="text"

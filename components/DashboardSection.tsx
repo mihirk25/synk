@@ -26,7 +26,7 @@ export function DashboardSection() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <p className="text-sm text-[#8b5a6b]">
+        <p className="min-w-0 text-sm text-[#8b5a6b] sm:max-w-md">
           Figures update live from the roster and closing form — change either tab and this
           dashboard refreshes.
         </p>

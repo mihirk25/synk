@@ -26,7 +26,6 @@ import { durationBarWidth } from "@/lib/shiftBands";
 import type { DayKey, RosterSlot } from "@/lib/types";
 import { Card } from "./StatCard";
 import { ResponsiveGrid } from "./ResponsiveGrid";
-import { ScrollRow } from "./ScrollRow";
 import {
   CheckCircle2,
   ChevronLeft,
@@ -295,92 +294,96 @@ export function RosterSection() {
 
   return (
     <div className="space-y-6">
-      <ScrollRow>
-        <div className="flex w-max min-w-full flex-nowrap items-center justify-between gap-4 md:w-auto">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => shiftWeek(-1)}
-              className="rounded-full border border-[#f0d4dc] bg-white p-2 hover:bg-[#fff8f3]"
-              aria-label="Previous week"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <div>
-              <p className="font-semibold text-[#3d2a32]">{weekLabel}</p>
-              <p className="text-xs text-[#8b5a6b]">Week starting {formatDateKey(weekStart, "long")}</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => shiftWeek(1)}
-              className="rounded-full border border-[#f0d4dc] bg-white p-2 hover:bg-[#fff8f3]"
-              aria-label="Next week"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setWeekStart(getMondayOfWeek())}
-              className="ml-2 rounded-full px-3 py-1.5 text-xs font-medium text-[#e85d8a] ring-1 ring-[#f0d4dc] hover:bg-[#fff0f5]"
-            >
-              This week
-            </button>
-            <button
-              type="button"
-              onClick={handleCopyFromLastWeek}
-              disabled={copyingWeek}
-              className="rounded-full px-3 py-1.5 text-xs font-medium text-[#6b4f5a] ring-1 ring-[#f0d4dc] hover:bg-[#fff8f3] disabled:opacity-50"
-            >
-              {copyingWeek ? "Copying…" : "Copy from last week"}
-            </button>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => shiftWeek(-1)}
+            className="rounded-full border border-[#f0d4dc] bg-white p-2 hover:bg-[#fff8f3]"
+            aria-label="Previous week"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold text-[#3d2a32]">{weekLabel}</p>
+            <p className="text-xs text-[#8b5a6b]">
+              <span className="sm:hidden">Week of {formatDateKey(weekStart)}</span>
+              <span className="hidden sm:inline">Week starting {formatDateKey(weekStart, "long")}</span>
+            </p>
           </div>
+          <button
+            type="button"
+            onClick={() => shiftWeek(1)}
+            className="rounded-full border border-[#f0d4dc] bg-white p-2 hover:bg-[#fff8f3]"
+            aria-label="Next week"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
 
-          <div className="flex shrink-0 flex-nowrap gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setStaffPayError(null);
-                setStaffForm(emptyStaffForm());
-              }}
-              className="inline-flex items-center gap-2 rounded-full border border-[#f0d4dc] bg-white px-4 py-2 text-sm font-medium text-[#6b4f5a] hover:bg-[#fff8f3]"
-            >
-              <UserPlus className="h-4 w-4" />
-              Add staff
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowPreview((v) => !v)}
-              className="inline-flex items-center gap-2 rounded-full border border-[#f0d4dc] bg-white px-4 py-2 text-sm font-medium text-[#6b4f5a] hover:bg-[#fff8f3]"
-            >
-              <Eye className="h-4 w-4" />
-              Preview
-            </button>
-            {currentRoster.published ? (
-              <>
-                <span className="inline-flex items-center gap-1 rounded-full bg-[#e8f8ee] px-3 py-2 text-sm font-medium text-[#1f5a34]">
-                  <CheckCircle2 className="h-4 w-4" />
-                  Published
-                </span>
-                <button
-                  type="button"
-                  onClick={unpublishRoster}
-                  className="rounded-full px-4 py-2 text-sm font-medium text-[#8b5a6b] ring-1 ring-[#f0d4dc] hover:bg-white"
-                >
-                  Unpublish
-                </button>
-              </>
-            ) : (
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setWeekStart(getMondayOfWeek())}
+            className="rounded-full px-3 py-2 text-xs font-medium text-[#e85d8a] ring-1 ring-[#f0d4dc] hover:bg-[#fff0f5]"
+          >
+            This week
+          </button>
+          <button
+            type="button"
+            onClick={handleCopyFromLastWeek}
+            disabled={copyingWeek}
+            className="rounded-full px-3 py-2 text-xs font-medium text-[#6b4f5a] ring-1 ring-[#f0d4dc] hover:bg-[#fff8f3] disabled:opacity-50"
+          >
+            {copyingWeek ? "Copying…" : "Copy from last week"}
+          </button>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setStaffPayError(null);
+              setStaffForm(emptyStaffForm());
+            }}
+            className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-[#f0d4dc] bg-white px-4 py-2 text-sm font-medium text-[#6b4f5a] hover:bg-[#fff8f3] sm:flex-none"
+          >
+            <UserPlus className="h-4 w-4" />
+            Add staff
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowPreview((v) => !v)}
+            className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-[#f0d4dc] bg-white px-4 py-2 text-sm font-medium text-[#6b4f5a] hover:bg-[#fff8f3] sm:flex-none"
+          >
+            <Eye className="h-4 w-4" />
+            Preview
+          </button>
+          {currentRoster.published ? (
+            <>
+              <span className="inline-flex w-full items-center justify-center gap-1 rounded-full bg-[#e8f8ee] px-3 py-2 text-sm font-medium text-[#1f5a34] sm:w-auto">
+                <CheckCircle2 className="h-4 w-4" />
+                Published
+              </span>
               <button
                 type="button"
-                onClick={publishRoster}
-                className="rounded-full bg-[#e85d8a] px-5 py-2 text-sm font-medium text-white hover:bg-[#d44d7a]"
+                onClick={unpublishRoster}
+                className="w-full rounded-full px-4 py-2 text-sm font-medium text-[#8b5a6b] ring-1 ring-[#f0d4dc] hover:bg-white sm:w-auto"
               >
-                Publish roster
+                Unpublish
               </button>
-            )}
-          </div>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={publishRoster}
+              className="w-full rounded-full bg-[#e85d8a] px-5 py-2 text-sm font-medium text-white hover:bg-[#d44d7a] sm:w-auto"
+            >
+              Publish roster
+            </button>
+          )}
         </div>
-      </ScrollRow>
+      </div>
 
       {copyNotice ? (
         <p
@@ -430,7 +433,63 @@ export function RosterSection() {
       ) : null}
 
       <Card title="Weekly schedule">
-        <div className="scroll-x -mx-5 px-5">
+        {/* Mobile: one block per day */}
+        <div className="space-y-4 md:hidden">
+          {DAYS.map((d) => {
+            const dateKey = dateKeyForDay(weekStart, d.key);
+            const holiday = getAustralianHoliday(dateKey);
+            return (
+              <div
+                key={d.key}
+                className={`rounded-xl border p-3 ${
+                  holiday ? "border-[#a5b4fc] bg-[#eef2ff]/40" : "border-[#f0d4dc] bg-[#fff8f3]/50"
+                }`}
+              >
+                <div className="mb-3 flex items-start justify-between gap-2">
+                  <div>
+                    <p className="font-semibold text-[#3d2a32]">{d.label}</p>
+                    <p className="text-xs text-[#8b5a6b]">{formatDateKey(dateKey)}</p>
+                  </div>
+                  {holiday ? (
+                    <span className="rounded-full bg-[#eef2ff] px-2 py-0.5 text-[10px] font-medium text-[#3730a3]">
+                      {holiday}
+                    </span>
+                  ) : null}
+                </div>
+                <div className="space-y-2">
+                  {slotRows.map((slotIndex) => {
+                    const slot = currentRoster.slots[d.key][slotIndex];
+                    if (!slot) return null;
+                    return (
+                      <RosterSlotCard
+                        key={slotIndex}
+                        slot={slot}
+                        employeeName={employeeName(slot.employeeId)}
+                        employeeId={slot.employeeId}
+                        employees={state.employees}
+                        onClick={() => openSlotEditor(d.key, slot)}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+          {currentRoster.slotsPerDay < MAX_ROSTER_SLOTS_PER_DAY ? (
+            <button
+              type="button"
+              onClick={handleAddSlotRow}
+              disabled={addingSlot}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-[#f0d4dc] py-3 text-sm text-[#8b5a6b] hover:border-[#e85d8a] hover:bg-[#fff0f5] hover:text-[#e85d8a] disabled:opacity-50"
+            >
+              <Plus className="h-4 w-4" />
+              {addingSlot ? "Adding…" : "Add shift row for week"}
+            </button>
+          ) : null}
+        </div>
+
+        {/* Desktop: 7-day grid */}
+        <div className="scroll-x -mx-5 hidden px-5 md:block">
           <table className="min-w-[48rem] w-full border-separate border-spacing-2 text-sm">
             <thead>
               <tr>

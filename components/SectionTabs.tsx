@@ -5,13 +5,18 @@ import {
   LayoutDashboard,
   Users,
 } from "lucide-react";
-import { ScrollRow } from "./ScrollRow";
 
-const allTabs: { id: Section; label: string; icon: typeof LayoutDashboard; staff?: boolean }[] = [
-  { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { id: "labor", label: "Labour Cost", icon: Users },
-  { id: "roster", label: "Roster", icon: CalendarDays },
-  { id: "eod", label: "Closing Form", icon: ClipboardList, staff: true },
+const allTabs: {
+  id: Section;
+  label: string;
+  shortLabel: string;
+  icon: typeof LayoutDashboard;
+  staff?: boolean;
+}[] = [
+  { id: "dashboard", label: "Dashboard", shortLabel: "Home", icon: LayoutDashboard },
+  { id: "labor", label: "Labour Cost", shortLabel: "Labour", icon: Users },
+  { id: "roster", label: "Roster", shortLabel: "Roster", icon: CalendarDays },
+  { id: "eod", label: "Closing Form", shortLabel: "Closing", icon: ClipboardList, staff: true },
 ];
 
 export function SectionTabs({
@@ -23,31 +28,35 @@ export function SectionTabs({
   onChange: (s: Section) => void;
   userRole?: "OWNER" | "MANAGER" | "VIEWER";
 }) {
-  const tabs =
-    userRole === "VIEWER" ? allTabs.filter((t) => t.staff) : allTabs;
+  const tabs = userRole === "VIEWER" ? allTabs.filter((t) => t.staff) : allTabs;
 
   return (
-    <ScrollRow>
-      <nav className="flex w-max min-w-full gap-2 md:w-auto">
-        {tabs.map(({ id, label, icon: Icon }) => {
-          const selected = active === id;
-          return (
-            <button
-              key={id}
-              type="button"
-              onClick={() => onChange(id)}
-              className={`inline-flex shrink-0 items-center gap-2 rounded-full px-4 py-2.5 text-sm font-medium transition ${
-                selected
-                  ? "bg-[#e85d8a] text-white shadow-sm"
-                  : "bg-white text-[#6b4f5a] ring-1 ring-[#f0d4dc] hover:bg-[#fff5f8]"
-              }`}
-            >
-              <Icon className="h-4 w-4" />
-              {label}
-            </button>
-          );
-        })}
-      </nav>
-    </ScrollRow>
+    <nav
+      className={
+        tabs.length === 1
+          ? "flex"
+          : "grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-2"
+      }
+    >
+      {tabs.map(({ id, label, shortLabel, icon: Icon }) => {
+        const selected = active === id;
+        return (
+          <button
+            key={id}
+            type="button"
+            onClick={() => onChange(id)}
+            className={`inline-flex items-center justify-center gap-1.5 rounded-full px-3 py-2.5 text-sm font-medium transition sm:justify-start sm:px-4 ${
+              selected
+                ? "bg-[#e85d8a] text-white shadow-sm"
+                : "bg-white text-[#6b4f5a] ring-1 ring-[#f0d4dc] hover:bg-[#fff5f8]"
+            }`}
+          >
+            <Icon className="h-4 w-4 shrink-0" />
+            <span className="sm:hidden">{shortLabel}</span>
+            <span className="hidden sm:inline">{label}</span>
+          </button>
+        );
+      })}
+    </nav>
   );
 }
