@@ -23,13 +23,12 @@ export async function getSessionUser(): Promise<AuthUser | null> {
 
   if (session.kind === "staff") {
     return {
-      id: session.employee.id,
+      id: session.staffName,
       email: null,
-      name: session.employee.name,
+      name: session.staffName,
       role: "VIEWER",
       shopId: session.shop.id,
       shopName: session.shop.name,
-      employeeId: session.employee.id,
       isStaffPin: true,
     };
   }

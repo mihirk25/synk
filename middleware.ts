@@ -5,8 +5,10 @@ import { SESSION_COOKIE, SESSION_KIND_COOKIE } from "@/lib/auth/constants";
 const PUBLIC_PATHS = new Set([
   "/",
   "/login",
+  "/signup",
   "/staff",
   "/api/auth/login",
+  "/api/auth/register",
   "/api/auth/staff-login",
   "/api/staff/employees",
 ]);

@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 import { ManagerAppProvider } from "@/context/ManagerAppContext";
 
-const PUBLIC_PATHS = new Set(["/", "/login", "/staff"]);
+const PUBLIC_PATHS = new Set(["/", "/login", "/signup", "/staff"]);
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

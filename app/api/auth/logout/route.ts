@@ -8,7 +8,7 @@ export async function POST() {
   const token = cookieStore.get(SESSION_COOKIE)?.value;
 
   if (token) {
-    await invalidateSession(token);
+    void invalidateSession(token);
   }
 
   const response = NextResponse.json({ ok: true });

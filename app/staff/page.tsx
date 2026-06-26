@@ -7,26 +7,22 @@ import { RefreshCw } from "lucide-react";
 import { PRODUCT_NAME } from "@/lib/constants";
 import { apiFetch } from "@/lib/api/client";
 
-type StaffOption = { id: string; name: string };
-
 export default function StaffLoginPage() {
   const router = useRouter();
-  const [employees, setEmployees] = useState<StaffOption[]>([]);
   const [shopName, setShopName] = useState("");
-  const [employeeId, setEmployeeId] = useState("");
+  const [pinConfigured, setPinConfigured] = useState(true);
+  const [name, setName] = useState("");
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [listError, setListError] = useState("");
 
   useEffect(() => {
-    apiFetch<{ shopName: string; employees: StaffOption[] }>("/api/staff/employees")
+    apiFetch<{ shopName: string; pinConfigured: boolean }>("/api/staff/employees")
       .then((data) => {
         setShopName(data.shopName);
-        setEmployees(data.employees);
-        if (data.employees.length > 0) setEmployeeId(data.employees[0]!.id);
+        setPinConfigured(data.pinConfigured);
       })
-      .catch(() => setListError("Could not load staff list. Ask your manager to set up PINs."));
+      .catch(() => setPinConfigured(false));
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -37,10 +33,9 @@ export default function StaffLoginPage() {
     try {
       await apiFetch("/api/auth/staff-login", {
         method: "POST",
-        body: JSON.stringify({ employeeId, pin }),
+        body: JSON.stringify({ name: name.trim(), pin }),
       });
-      router.push("/close");
-      router.refresh();
+      router.replace("/close");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sign in failed");
     } finally {
@@ -61,34 +56,28 @@ export default function StaffLoginPage() {
           </p>
         </div>
 
-        {listError ? (
-          <p className="mb-4 rounded-xl bg-[#fff5f8] px-3 py-2 text-sm text-[#c43d5a]">{listError}</p>
+        {!pinConfigured ? (
+          <p className="mb-4 rounded-xl bg-[#fff5f8] px-3 py-2 text-sm text-[#c43d5a]">
+            Staff PIN is not set up yet. Ask your manager to set it in the roster.
+          </p>
         ) : null}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <label className="block">
             <span className="mb-1 block text-sm font-medium text-[#6b4f5a]">Your name</span>
-            <select
-              value={employeeId}
-              onChange={(e) => setEmployeeId(e.target.value)}
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
               className="w-full rounded-xl border border-[#f0d4dc] px-3 py-2.5 text-sm"
+              placeholder="e.g. Priya"
               required
-              disabled={employees.length === 0}
-            >
-              {employees.length === 0 ? (
-                <option value="">No staff with PIN set up yet</option>
-              ) : (
-                employees.map((emp) => (
-                  <option key={emp.id} value={emp.id}>
-                    {emp.name}
-                  </option>
-                ))
-              )}
-            </select>
+              autoComplete="name"
+            />
           </label>
 
           <label className="block">
-            <span className="mb-1 block text-sm font-medium text-[#6b4f5a]">PIN</span>
+            <span className="mb-1 block text-sm font-medium text-[#6b4f5a]">Staff PIN</span>
             <input
               type="password"
               inputMode="numeric"
@@ -97,7 +86,7 @@ export default function StaffLoginPage() {
               value={pin}
               onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
               className="w-full rounded-xl border border-[#f0d4dc] px-3 py-2.5 text-sm tracking-widest"
-              placeholder="4–6 digits"
+              placeholder="From your manager"
               required
               autoComplete="off"
             />
@@ -109,7 +98,7 @@ export default function StaffLoginPage() {
 
           <button
             type="submit"
-            disabled={loading || employees.length === 0}
+            disabled={loading || !pinConfigured || !name.trim()}
             className="w-full rounded-full bg-[#e85d8a] px-5 py-2.5 text-sm font-medium text-white hover:bg-[#d44d7a] disabled:opacity-60"
           >
             {loading ? "Signing in…" : "Continue to closing form"}

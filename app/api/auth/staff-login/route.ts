@@ -8,7 +8,7 @@ import {
 import { staffLoginSchema } from "@/lib/validations";
 import { jsonError, parseJson, zodError } from "@/lib/server/api";
 import {
-  authenticateStaffPin,
+  authenticateShopStaffPin,
   createStaffSession,
   getDefaultShop,
 } from "@/lib/firestore/repository";
@@ -22,9 +22,11 @@ export async function POST(request: NextRequest) {
 
     const shop = await getDefaultShop();
     if (!shop) return jsonError("Shop not configured", 500);
+    if (!shop.staffPinHash) return jsonError("Staff PIN not set up yet. Ask your manager.", 503);
 
-    const employee = await authenticateStaffPin(shop.id, parsed.data.employeeId, parsed.data.pin);
-    if (!employee) return jsonError("Invalid name or PIN", 401);
+    const name = parsed.data.name.trim();
+    const ok = await authenticateShopStaffPin(shop.id, parsed.data.pin);
+    if (!ok) return jsonError("Invalid name or PIN", 401);
 
     const token = randomUUID();
     const expiresAt = sessionExpiry();
@@ -32,14 +34,14 @@ export async function POST(request: NextRequest) {
     await createStaffSession({
       token,
       shopId: shop.id,
-      employeeId: employee.id,
+      staffName: name,
       expiresAt,
     });
 
     const response = NextResponse.json({
       user: {
-        id: employee.id,
-        name: employee.name,
+        id: token,
+        name,
         role: "VIEWER",
       },
     });

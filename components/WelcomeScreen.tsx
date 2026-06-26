@@ -39,10 +39,19 @@ export function WelcomeScreen() {
             </div>
             <div className="text-left">
               <p className="font-semibold text-[#3d2a32]">Manager</p>
-              <p className="text-sm text-[#8b5a6b]">Sign in with email and password for the full dashboard</p>
+              <p className="text-sm text-[#8b5a6b]">
+                Sign in, or create a shop account if it&apos;s your first time
+              </p>
             </div>
           </Link>
         </div>
+
+        <p className="mt-4 text-center text-sm text-[#8b5a6b]">
+          New manager?{" "}
+          <Link href="/signup" className="font-medium text-[#6366f1] hover:underline">
+            Create your shop account
+          </Link>
+        </p>
       </div>
     </div>
   );

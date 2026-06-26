@@ -11,7 +11,6 @@ export type Employee = {
   sundayRate?: number;
   publicHolidayRate?: number;
   availability: AvailabilityKey[];
-  hasPin?: boolean;
 };
 
 export type ShiftLog = {

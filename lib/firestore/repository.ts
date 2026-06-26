@@ -50,6 +50,7 @@ export type UserRecord = {
 export type ShopRecord = {
   id: string;
   name: string;
+  staffPinHash: string | null;
 };
 
 export type EmployeeRecord = {
@@ -100,14 +101,73 @@ export async function getShop(shopId: string): Promise<ShopRecord | null> {
   const doc = await db().collection(COLLECTIONS.shops).doc(shopId).get();
   if (!doc.exists) return null;
   const data = doc.data()!;
-  return { id: doc.id, name: data.name };
+  return {
+    id: doc.id,
+    name: data.name,
+    staffPinHash: data.staffPinHash ? String(data.staffPinHash) : null,
+  };
 }
 
 export async function getDefaultShop(): Promise<ShopRecord | null> {
   const snap = await db().collection(COLLECTIONS.shops).limit(1).get();
   const doc = snap.docs[0];
   if (!doc) return null;
-  return { id: doc.id, name: doc.data().name };
+  const data = doc.data();
+  return {
+    id: doc.id,
+    name: data.name,
+    staffPinHash: data.staffPinHash ? String(data.staffPinHash) : null,
+  };
+}
+
+export async function setShopStaffPin(shopId: string, pinHash: string) {
+  await db().collection(COLLECTIONS.shops).doc(shopId).set(
+    { staffPinHash: pinHash, updatedAt: FieldValue.serverTimestamp() },
+    { merge: true },
+  );
+}
+
+export async function authenticateShopStaffPin(shopId: string, pin: string): Promise<boolean> {
+  const shop = await getShop(shopId);
+  if (!shop?.staffPinHash) return false;
+  const { verifyPassword } = await import("@/lib/auth/password");
+  return verifyPassword(pin, shop.staffPinHash);
+}
+
+export async function createShopWithOwner(input: {
+  shopName: string;
+  name: string;
+  email: string;
+  passwordHash: string;
+}): Promise<{ shopId: string; userId: string }> {
+  const existing = await findUserByEmail(input.email);
+  if (existing) {
+    throw new Error("EMAIL_IN_USE");
+  }
+
+  const shopId = randomUUID();
+  const userId = randomUUID();
+  const now = FieldValue.serverTimestamp();
+  const email = input.email.toLowerCase();
+
+  await db().collection(COLLECTIONS.shops).doc(shopId).set({
+    name: input.shopName.trim(),
+    staffPinHash: null,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  await db().collection(COLLECTIONS.users).doc(userId).set({
+    shopId,
+    email,
+    name: input.name.trim(),
+    role: "OWNER",
+    passwordHash: input.passwordHash,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  return { shopId, userId };
 }
 
 function mapEmployeeDoc(id: string, data: DocumentData): EmployeeRecord {
@@ -142,13 +202,13 @@ export async function createSession(input: {
 export async function createStaffSession(input: {
   token: string;
   shopId: string;
-  employeeId: string;
+  staffName: string;
   expiresAt: Date;
 }) {
   await db().collection(COLLECTIONS.sessions).doc(input.token).set({
     kind: "staff",
     shopId: input.shopId,
-    employeeId: input.employeeId,
+    staffName: input.staffName,
     expiresAt: Timestamp.fromDate(input.expiresAt),
     createdAt: FieldValue.serverTimestamp(),
   });
@@ -156,7 +216,7 @@ export async function createStaffSession(input: {
 
 export type SessionAuth =
   | { kind: "user"; user: UserRecord; shop: ShopRecord }
-  | { kind: "staff"; employee: EmployeeRecord; shop: ShopRecord };
+  | { kind: "staff"; staffName: string; shop: ShopRecord };
 
 export async function getSessionByToken(token: string): Promise<SessionAuth | null> {
   const sessionDoc = await db().collection(COLLECTIONS.sessions).doc(token).get();
@@ -169,17 +229,12 @@ export async function getSessionByToken(token: string): Promise<SessionAuth | nu
     return null;
   }
 
-  if (session.kind === "staff" || session.employeeId) {
+  if (session.kind === "staff" || session.staffName) {
     const shop = await getShop(String(session.shopId));
     if (!shop) return null;
-    const employeeDoc = await db()
-      .collection(COLLECTIONS.employees)
-      .doc(String(session.employeeId))
-      .get();
-    if (!employeeDoc.exists) return null;
-    const employee = mapEmployeeDoc(employeeDoc.id, employeeDoc.data()!);
-    if (employee.shopId !== shop.id || !employee.active) return null;
-    return { kind: "staff", employee, shop };
+    const staffName = String(session.staffName ?? "").trim();
+    if (!staffName) return null;
+    return { kind: "staff", staffName, shop };
   }
 
   const userDoc = await db().collection(COLLECTIONS.users).doc(String(session.userId)).get();
@@ -219,23 +274,6 @@ export async function listEmployees(shopId: string): Promise<EmployeeRecord[]> {
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
-export async function listStaffLoginEmployees(shopId: string): Promise<{ id: string; name: string }[]> {
-  const employees = await listEmployees(shopId);
-  return employees.filter((e) => e.pinHash).map((e) => ({ id: e.id, name: e.name }));
-}
-
-export async function authenticateStaffPin(
-  shopId: string,
-  employeeId: string,
-  pin: string,
-): Promise<EmployeeRecord | null> {
-  const employee = await findEmployee(shopId, employeeId);
-  if (!employee?.pinHash) return null;
-  const { verifyPassword } = await import("@/lib/auth/password");
-  const ok = await verifyPassword(pin, employee.pinHash);
-  return ok ? employee : null;
-}
-
 export async function findEmployee(
   shopId: string,
   employeeId: string,
@@ -247,16 +285,6 @@ export async function findEmployee(
   return mapEmployeeDoc(doc.id, data);
 }
 
-export async function setEmployeePin(shopId: string, employeeId: string, pinHash: string) {
-  const employee = await findEmployee(shopId, employeeId);
-  if (!employee) return false;
-  await db().collection(COLLECTIONS.employees).doc(employeeId).set(
-    { pinHash, updatedAt: FieldValue.serverTimestamp() },
-    { merge: true },
-  );
-  return true;
-}
-
 export async function createEmployee(
   shopId: string,
   data: {
@@ -266,7 +294,6 @@ export async function createEmployee(
     sundayRate: number;
     publicHolidayRate: number;
     availableDays: string;
-    pinHash?: string | null;
   },
 ) {
   const id = randomUUID();
@@ -280,7 +307,6 @@ export async function createEmployee(
     sundayRate: data.sundayRate,
     publicHolidayRate: data.publicHolidayRate,
     availableDays: data.availableDays,
-    pinHash: data.pinHash ?? null,
     active: true,
     createdAt: now,
     updatedAt: now,
@@ -297,7 +323,7 @@ export async function createEmployee(
     publicHolidayRate: record.publicHolidayRate,
     availableDays: record.availableDays,
     active: true,
-    pinHash: record.pinHash,
+    pinHash: null,
   } satisfies EmployeeRecord;
 }
 

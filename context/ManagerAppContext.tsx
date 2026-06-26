@@ -53,9 +53,9 @@ type ManagerContextValue = {
     sundayRate: number;
     publicHolidayRate: number;
     availability: AvailabilityKey[];
-    pin?: string;
   }) => Promise<void>;
-  setEmployeePin: (employeeId: string, pin: string) => Promise<void>;
+  staffPinConfigured: boolean;
+  setStaffPin: (pin: string) => Promise<void>;
   addRosterSlotRow: () => Promise<void>;
   copyRosterFromPreviousWeek: () => Promise<{ copied: boolean; message: string }>;
   saveRosterSlot: (
@@ -65,7 +65,7 @@ type ManagerContextValue = {
   ) => Promise<void>;
   publishRoster: () => Promise<void>;
   unpublishRoster: () => Promise<void>;
-  logout: () => Promise<void>;
+  logout: () => void;
   getEmployee: (id: string) => Employee | undefined;
 };
 
@@ -103,6 +103,7 @@ export function ManagerAppProvider({
   const [section, setSection] = useState<Section>("dashboard");
   const [selectedDate, setSelectedDateState] = useState(todayKey());
   const [weekStart, setWeekStartState] = useState(getMondayOfWeek());
+  const [staffPinConfigured, setStaffPinConfigured] = useState(false);
 
   const setSelectedDate = useCallback((date: string) => {
     setSelectedDateState(date);
@@ -129,7 +130,9 @@ export function ManagerAppProvider({
               isStaffPin?: boolean;
             };
           }>("/api/auth/me"),
-          apiFetch<{ state: AppState; shopName: string }>("/api/app-state"),
+          apiFetch<{ state: AppState; shopName: string; staffPinConfigured?: boolean }>(
+            "/api/app-state",
+          ),
         ]);
         if (cancelled) return;
 
@@ -144,6 +147,7 @@ export function ManagerAppProvider({
 
         setState(app.state);
         setShopName(app.shopName);
+        setStaffPinConfigured(Boolean(app.staffPinConfigured));
         setUserEmail(me.user.email ?? "");
         setUserName(me.user.name ?? "");
         setUserRole(me.user.role);
@@ -167,7 +171,7 @@ export function ManagerAppProvider({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [authRedirect, managerSession, router, staffSession]);
 
   const currentRoster = useMemo(() => {
     return ensureRosterWeek(state, weekStart);
@@ -265,7 +269,6 @@ export function ManagerAppProvider({
       sundayRate: number;
       publicHolidayRate: number;
       availability: AvailabilityKey[];
-      pin?: string;
     }) => {
       const { employee } = await apiFetch<{ employee: Employee }>("/api/employees", {
         method: "POST",
@@ -279,17 +282,12 @@ export function ManagerAppProvider({
     [],
   );
 
-  const setEmployeePin = useCallback(async (employeeId: string, pin: string) => {
-    await apiFetch(`/api/employees/${employeeId}/pin`, {
+  const setStaffPin = useCallback(async (pin: string) => {
+    await apiFetch("/api/shop/staff-pin", {
       method: "PATCH",
       body: JSON.stringify({ pin }),
     });
-    setState((prev) => ({
-      ...prev,
-      employees: prev.employees.map((e) =>
-        e.id === employeeId ? { ...e, hasPin: true } : e,
-      ),
-    }));
+    setStaffPinConfigured(true);
   }, []);
 
   const addRosterSlotRow = useCallback(async () => {
@@ -356,10 +354,9 @@ export function ManagerAppProvider({
     applyRoster(roster);
   }, [weekStart, applyRoster]);
 
-  const logout = useCallback(async () => {
-    await apiFetch("/api/auth/logout", { method: "POST" });
-    router.push(logoutRedirect);
-    router.refresh();
+  const logout = useCallback(() => {
+    void fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" });
+    router.replace(logoutRedirect);
   }, [logoutRedirect, router]);
 
   const getEmployee = useCallback(
@@ -388,7 +385,8 @@ export function ManagerAppProvider({
       saveEOD,
       saveCashCount,
       addEmployee,
-      setEmployeePin,
+      staffPinConfigured,
+      setStaffPin,
       addRosterSlotRow,
       copyRosterFromPreviousWeek,
       saveRosterSlot,
@@ -414,7 +412,8 @@ export function ManagerAppProvider({
       saveEOD,
       saveCashCount,
       addEmployee,
-      setEmployeePin,
+      staffPinConfigured,
+      setStaffPin,
       addRosterSlotRow,
       copyRosterFromPreviousWeek,
       saveRosterSlot,
