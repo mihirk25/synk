@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { RefreshCw, UserCog, Users } from "lucide-react";
-import { PRODUCT_NAME } from "@/lib/constants";
+import { PRODUCT_NAME, PRODUCT_TAGLINE } from "@/lib/constants";
 
 export function WelcomeScreen() {
   return (
@@ -13,7 +13,7 @@ export function WelcomeScreen() {
             <RefreshCw className="h-8 w-8" />
           </div>
           <h1 className="text-3xl font-semibold text-[#3d2a32]">{PRODUCT_NAME}</h1>
-          <p className="mt-2 text-sm text-[#8b5a6b]">Ice cream shop manager</p>
+          <p className="mt-2 text-sm text-[#8b5a6b]">{PRODUCT_TAGLINE}</p>
         </div>
 
         <div className="space-y-3">

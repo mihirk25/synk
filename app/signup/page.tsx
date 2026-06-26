@@ -43,7 +43,7 @@ export default function SignupPage() {
           </div>
           <h1 className="text-2xl font-semibold text-[#3d2a32]">Create your shop</h1>
           <p className="mt-2 text-sm text-[#8b5a6b]">
-            First time? Set up {PRODUCT_NAME} for your ice cream shop.
+            First time? Create your shop account on {PRODUCT_NAME}.
           </p>
         </div>
 

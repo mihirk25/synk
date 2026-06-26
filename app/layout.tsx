@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Synk — Manager",
-  description: "Daily labour, roster, and closing form for your shop",
+  title: "Synk — Store Management",
+  description: "Roster, labour, and daily closing for retail teams",
 };
 
 export const viewport = {

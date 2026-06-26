@@ -2,6 +2,7 @@ import type { DayKey } from "./types";
 
 export const STORAGE_KEY = "synk-v1";
 export const PRODUCT_NAME = "Synk";
+export const PRODUCT_TAGLINE = "Store operations, simplified";
 
 export const DAYS: { key: DayKey; label: string; short: string }[] = [
   { key: "mon", label: "Monday", short: "Mon" },
